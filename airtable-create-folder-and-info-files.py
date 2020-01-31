@@ -120,12 +120,13 @@ tpeTblKey = 'appb66460atpZjzMq'
 tpeTblNme = 'Type'
 
 # # +
-#### Get all the information from AirTable
+#### Get all the information from AirTable - USE YOUR OWN API KEY HERE
+########################################################################################################
 srcAirTbl = Airtable(srcTblKey, srcTblNme, api_key=str(decrypt(encryptedKey.encode(), key).decode()))
 famAirTbl = Airtable(famTblKey, famTblNme, api_key=str(decrypt(encryptedKey.encode(), key).decode()))
 prdAirTbl = Airtable(prdTblKey, prdTblNme, api_key=str(decrypt(encryptedKey.encode(), key).decode()))
 tpeAirTbl = Airtable(tpeTblKey, tpeTblNme, api_key=str(decrypt(encryptedKey.encode(), key).decode()))
-
+########################################################################################################
 print(famAirTbl)
 
 # # +
