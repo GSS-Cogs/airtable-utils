@@ -1,7 +1,8 @@
 # airtable-utils
 Various scripts for connecting and using data from AirTable
 
-#########################################################################################################################
+#####################################################
+
 airtable-create-folder-and-info-files.py:
 
   Script connects to Airtable COGS and pulls in data from a number of tables
@@ -13,4 +14,4 @@ airtable-create-folder-and-info-files.py:
   This code needs further development as columns, Contact Details and Dimensions within the main ETL table needs 
   further development to ensure a consistant format is used.  
   
-#########################################################################################################################
+#####################################################
