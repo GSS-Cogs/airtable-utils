@@ -84,10 +84,10 @@ def decrypt(token: bytes, key: bytes) -> bytes:
     return Fernet(key).decrypt(token)
 
 
-# # +
-#### Pull in the encrypted keys from a text file to access AirTable bases
+# -------------------------------------------------------------------------------------------------------------
+# Pull in the encrypted keys from a text file to access AirTable bases
 i = 0
-with open('AirTableEncrypt.txt', "r") as input:   
+with open('AirTableEncrypt.txt', "r") as input:
     for line in input:
         if (i == 0):
             key = line.strip().strip("\n")
@@ -97,53 +97,50 @@ with open('AirTableEncrypt.txt', "r") as input:
 
 input.close()
 
-#print('MainKey: ' + key)
-#print('Key1: ' + encryptedKey)
+# -------------------------------------------------------------------------------------------------------------
 
-# # +
-#### All Tables are from Base COGS Dataset ETL Records
-
-#### Source Data Table 
+# All Tables are from Base COGS Dataset ETL Records
+# Source Data Table
 srcTblKey = 'appb66460atpZjzMq'
 srcTblNme = 'Source Data'
 
-#### Family Table 
+# Family Table
 famTblKey = 'appb66460atpZjzMq'
 famTblNme = 'Family'
 
-#### Dataset Producer Table
+# Dataset Producer Table
 prdTblKey = 'appb66460atpZjzMq'
 prdTblNme = 'Dataset Producer'
 
-#### Data Type Table
+# Data Type Table
 tpeTblKey = 'appb66460atpZjzMq'
 tpeTblNme = 'Type'
 
-# # +
-#### Get all the information from AirTable - USE YOUR OWN API KEY HERE
+# -------------------------------------------------------------------------------------------------------------
+
+# Get all the information from AirTable - USE YOUR OWN API KEY HERE
 ########################################################################################################
 srcAirTbl = Airtable(srcTblKey, srcTblNme, api_key=str(decrypt(encryptedKey.encode(), key).decode()))
 famAirTbl = Airtable(famTblKey, famTblNme, api_key=str(decrypt(encryptedKey.encode(), key).decode()))
 prdAirTbl = Airtable(prdTblKey, prdTblNme, api_key=str(decrypt(encryptedKey.encode(), key).decode()))
 tpeAirTbl = Airtable(tpeTblKey, tpeTblNme, api_key=str(decrypt(encryptedKey.encode(), key).decode()))
 ########################################################################################################
-print(famAirTbl)
 
-# # +
-#### Get all the table data from Airtable
+# -------------------------------------------------------------------------------------------------------------
+
+# Get all the table data from Airtable
 srcDat = srcAirTbl.get_all()
 famDat = famAirTbl.get_all()
 prdDat = prdAirTbl.get_all()
 tpeDat = tpeAirTbl.get_all()
 
-#### Convert the table data into DataFrame format  
+# Convert the table data into DataFrame format
 srcDat = pd.DataFrame.from_records((r['fields'] for r in srcDat))
 famDat = pd.DataFrame.from_records((r['fields'] for r in famDat))
 prdDat = pd.DataFrame.from_records((r['fields'] for r in prdDat))
 tpeDat = pd.DataFrame.from_records((r['fields'] for r in tpeDat))
 
-
-# -
+# -------------------------------------------------------------------------------------------------------------
 
 def getProducer(prdCde, fullOrShort):
     try:
@@ -188,6 +185,7 @@ def getDataType(tpeCde):
 
 def cleanTitle(mnTle):
     try:
+        mnTle = mnTle.rstrip()
         mnTle = mnTle.replace(' ','-')
         mnTle = ''.join(e for e in mnTle if (e.isalnum()) | (e == '-'))
         mnTle = mnTle.lower()
@@ -198,12 +196,16 @@ def cleanTitle(mnTle):
 
 def formatContactDetails(colNme, cntDtls):
     try:
-        cntsDets = cntDtls.split(',')
-        outDtls = '\t\t"' + colNme + '":\n\t\t[{\n'
-        for cnts in cntsDets:
-            cnts = ' '.join([line.strip() for line in cnts.strip().splitlines()])
-            outDtls += f'\t\t\t\t"{cnts}",\n'
-        outDtls += '\n\t\t}],\n'
+        #cntsDets = cntDtls.split(',')
+        #outDtls = '\t\t"' + colNme + '": [{\n'
+        #for cnts in cntsDets:
+            #cnts = ' '.join([line.strip() for line in cnts.strip().splitlines()])
+            #outDtls += f'\t\t\t\t"{cnts}",'
+        #outDtls = outDtls[::-1] + '\n'
+        #outDtls += '\n\t\t}],\n'
+
+        outDtls = '\t\t"' + colNme + '": "' + cntDtls + '",\n'
+
         return outDtls
     except Exception as e:
         return 'formatContactDetails: ' + str(e)
@@ -216,58 +218,144 @@ def formatDimensions(dmns):
         return 'formatDimensions: ' + str(e)
 
 
-out = Path('infoFiles')
-out.mkdir(exist_ok=True, parents=True)
+def createTransformTemplate():
+    try:
+        ret = f'# # {mainTitle.strip()} \n\n'
+        ret += 'from gssutils import * \n'
+        ret += 'import json \n\n'
+        ret += f'''info = json.load(open('{jsonStr}')) \n'''
+        ret += f'''landingPage = info['{landingPageStr}'] \n'''
+        ret += 'landingPage \n\n'
+        ret += '# + \n'
+        ret += f'#### Add transformation script here #### \n\n'
+        ret += '''scraper = Scraper(landingPage) \n'''
+        ret += 'scraper.select_dataset(latest=True) \n'
+        ret += 'scraper '
 
-####
+        return ret
+    except Exception as eee:
+        return 'createTransformTemplate: ' + str(eee)
+
+
+def createReferenceDirectory(mf, rp):
+    colFleNme = 'columns.csv'
+    copFleNme = 'components.csv'
+
+    try:
+        rp1 = Path(Path(mf) / Path(rp))
+        rp1.mkdir(exist_ok=True, parents=True)
+        cl = 'codelists'
+        refPathCL = Path(rp1 / cl)
+        refPathCL.mkdir(exist_ok=True, parents=True)
+        if not (rp1 / colFleNme).exists():
+            with open(rp1 / colFleNme, "w") as output:
+                output.write('title,name,component_attachment,property_template,value_template,datatype,value_transformation,regex,range')
+                output.close
+        if not (rp1 / copFleNme).exists():
+            with open(rp1 / copFleNme, "w") as output:
+                output.write('Label,Description,Component Type,Codelist')
+                output.close
+        return 'Reference directory created'
+    except Exception as ee:
+        print("Reference directory creation failed: " + str(ee))
+
+
+# ---------------------------------------------------------------------------------------------------------------
+# Get the list of column names for looping purposes
 colNmes = list(srcDat)
 i = 0
 strToUse = True
 try:
+    # Set up some variables so you only need to change them here
+    # -----------------------------------------------------------------------------------------------------------
+    mainFldr = 'family-affordable-housing-airtable-test'
+    datStPath = 'datasets'
+    refPath = 'reference'
+    landingPageStr = 'Landing Page'
+    jsonStr = 'info.json'
+    pythonStr = 'main.py'
+    # -----------------------------------------------------------------------------------------------------------
+    # Stage Column folder sub-directories
+    fldrPath = [Path('candidate'),Path('to-document'),Path('backlog'),Path('prioritized'),Path('published')]
+    fldrStr = ['Candidate','To document','Backlog','Prioritized','Published']
+
+    # -----------------------------------------------------------------------------------------------------------
+
+    # Create the main folder directory
+    mainFldr = Path(mainFldr)
+    mainFldr.mkdir(exist_ok=True, parents=True)
+
+    # Create the Reference directory
+    print(createReferenceDirectory(mainFldr, refPath))
+
+    # Loop around each row in the source dataset creating the sub-folders and files as needed
     for label, row in srcDat.iterrows():
         myStr = '{\n'
         try:
-            mainTitle = row['Name']
-            mainTitle = cleanTitle(mainTitle)
-            for cols in colNmes:
-                strToUse = True
-                myCol = cols
-                myVal = str(row[myCol])
-                if ('Producer' in myCol):
-                    mainTitle = getProducer(myVal, 2) + '-' + mainTitle
-                    myVal2 = getProducer(myVal, 1)
-                    myVal = myVal2
-                elif ('Family' in myCol):
-                    myVal = getFamily(myVal)
-                elif ('Data type' in myCol):
-                    myVal = getDataType(myVal)
-                elif ('Contact Details' in myCol):
-                    myVal = formatContactDetails(myCol, myVal)
-                    strToUse = False
-                elif ('Dimensions' in myCol):
-                    myVal = formatDimensions(myVal)
-                else:
-                    myVal = myVal
-                if (strToUse):    
-                    myVal = ' '.join([line.strip() for line in myVal.strip().splitlines()])
-                    myStr += '\t\t"' + myCol + '": "' + myVal.replace("nan",'').replace('"','').strip('\n') + '",\n'
-                else:
-                    myStr += myVal.replace("nan",'')
-                #break
-            myStr += f'\t\t"transform": {{\n\t\t\t\t"main_issue":{i}\n\t\t}}\n}}'
-            infoOut = Path(out / mainTitle)
-            infoOut.mkdir(exist_ok=True, parents=True)
-            with open(infoOut / f'info.json', "w") as output: 
-                output.write(myStr)
-                output.close
-            i = i + 1
-            #break
+            if row['Name'].strip() != '':
+                mainTitle = row['Name']
+                mainTitle = cleanTitle(mainTitle)
+                for cols in colNmes:
+                    try:
+                        strToUse = True
+                        myCol = cols
+                        myVal = str(row[myCol])
+                        myVal = myVal.replace('\n',' ')
+                        if 'Producer' in myCol:
+                            mainTitle = getProducer(myVal, 2) + '-' + mainTitle.strip().replace('---','-').replace('--','-')
+                            myVal2 = getProducer(myVal, 1)
+                            myVal = myVal2
+                        elif 'Family' in myCol:
+                            myVal = getFamily(myVal)
+                        elif 'Data type' in myCol:
+                            myVal = getDataType(myVal)
+                        elif 'Contact Details' in myCol:
+                            myVal = formatContactDetails(myCol, myVal)
+                            strToUse = False
+                        elif 'Dimensions' in myCol:
+                            myVal = formatDimensions(myVal)
+                        elif landingPageStr in myCol:
+                            myVal = ' '.join([line.strip() for line in myVal.strip().splitlines()])
+                            lndPg = myVal
+                        else:
+                            myVal = myVal
+                        if strToUse:
+                            myVal = ' '.join([line.strip() for line in myVal.strip().splitlines()])
+                            myStr += '\t\t"' + myCol + '": "' + myVal.replace("nan",'').replace('"','').strip('\n') + '",\n'
+                        else:
+                            myStr += myVal.replace("nan",'')
+                    except Exception as e:
+                        print(f"Row {i} failed: " + mainTitle)
+                # Add the main issue number
+                myStr += f'\t\t"transform": {{\n\t\t\t\t"main_issue":{i}\n\t\t}}\n}}'
+
+                # Find which sub-directory this should go in and create a file path
+                outP = fldrStr.index(row['Stage'])
+                famCde = str(row['Family']).replace('[','').replace(']','').replace("'","")
+                famInd = famDat['Name'][famDat['Record ID'] == famCde].index.values.astype(int)
+                fam = str(famDat['Name'][famInd[0]]).replace(' ','-').lower()
+                infoOut = Path(Path(mainFldr) / Path(fam) / Path(datStPath) / Path(fldrPath[outP]) / Path(mainTitle))
+                refOut =  Path(Path(mainFldr) / Path(fam))
+                infoOut.mkdir(exist_ok=True, parents=True)
+
+                # Create the Reference directory
+                print(createReferenceDirectory(refOut, refPath))
+
+                # Create the JSON file
+                with open(infoOut / jsonStr, "w") as output:
+                    output.write(myStr)
+                    output.close
+
+                # Create the Python script template file if it DOES NOT already exist
+                if not (infoOut / pythonStr).exists():
+                    with open(infoOut / pythonStr, "w") as output:
+                        output.write(createTransformTemplate())
+                        output.close
+
+                i = i + 1
+
         except Exception as e:
             print(f"{i}. Inner loop Error: " + str(e))
 except Exception as e:
-        print(f"{i}. Outer loop Error: " + str(e))
+    print(f"{i}. Outer loop Error: " + str(e))
 
-
-# # +
-#tpeDat
-# --
