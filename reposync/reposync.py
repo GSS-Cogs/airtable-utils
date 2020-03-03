@@ -20,7 +20,7 @@ def pathify(label):
                          re.sub(r'[^\w/]', '-', label)))
 
 
-def update_info(info, source, producers, families, types):
+def update_info(info, source, producers, families, types, source_id):
     info['title'] = source.get('Name', '').strip()
     info['publisher'] = producers[source['Producer'][0]]['Full Name'].strip()
     info['description'] = source.get('Description', '').strip()
@@ -35,6 +35,7 @@ def update_info(info, source, producers, families, types):
     info['extract']['source'] = ', '.join(types[ref]['Name'] for ref in source.get('Data type', []))
     if 'transform' not in info:
         info['transform'] = {}
+    info['transform']['airtable'] = source_id
     info['sizingNotes'] = source.get('Sizing Notes', '').strip()
     info['notes'] = source.get('Notes', '').strip()
 
@@ -81,12 +82,21 @@ or put the token in the file {TOKEN_FILE}""")
         main_info = {}
     main_info['family'] = families[family_id]["Name"]
 
+    source_dataset_path = {}
+    for existing_pipeline in main_info['pipelines']:
+        dataset_info_path = datasets_path / existing_pipeline / 'info.json'
+        if dataset_info_path.exists():
+            with open(dataset_info_path) as info_file:
+                dataset_info = json.load(info_file)
+            if 'transform' in dataset_info and 'airtable' in dataset_info['transform']:
+                source_dataset_path[dataset_info['transform']['airtable']] = existing_pipeline
+
     pipelines = []
     for source_id, source in sources.items():
         if 'Family' in source and family_id in source['Family']:
             if 'Producer' in source and len(source['Producer']) == 1:
                 producer = producers[source['Producer'][0]]['Name']
-                dataset_dir = f"{producer}-{pathify(source['Name'])}"
+                dataset_dir = source_dataset_path.get(source_id, f"{producer}-{pathify(source['Name'])}")
                 prioritized = 'Stage' in source and source['Stage'] == 'Prioritized'
                 if not (datasets_path / dataset_dir).exists() and prioritized:
                     (datasets_path / dataset_dir).mkdir(parents=True)
@@ -98,7 +108,7 @@ or put the token in the file {TOKEN_FILE}""")
                         dataset_info = json.load(info_file)
                 else:
                     dataset_info = {}
-                update_info(dataset_info, source, producers, families, types)
+                update_info(dataset_info, source, producers, families, types, source_id)
                 if 'main_issue' in dataset_info['transform']:
                     update_github(dataset_info['transform']['main_issue'], source)
 
