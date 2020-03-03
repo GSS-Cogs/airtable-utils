@@ -1,14 +1,15 @@
 
-import os
 import shutil
 from github import Github
+from git import Repo
 import json
 import re
 from gssutils import *
+import secrets as ss
+
 
 def createInfoJSONFile(pth, jsonDict, inx, fleNme):
     try:
-        print('Creating JSON File')
         # Add the git issue number to the dictionary
         jsonDict['Main Issue'] = str(inx)
         # Filename is set globally at the top of this script
@@ -22,6 +23,8 @@ def createInfoJSONFile(pth, jsonDict, inx, fleNme):
 # Check if the Family is the one you want, passed param has been changed for testing purposes
 def checkFamily(transformFam, wantedFam, airTableFamilies):
     try:
+        # ASSUMES THEIR IS ONLY ONE FAMILY ASSOCIATED WITH THIS ETL
+        # AND PULLS IN THE FIRST ONE FROM THE LIST (SHOULD ONLY BE ONE THING IN THE LIST)
         # --------------------------------------------------------------------------------------
         # --------------------------------------------------------------------------------------
         # THIS NEEDS TO BE REMOVED ONCE WORKING PROPERLY
@@ -32,7 +35,6 @@ def checkFamily(transformFam, wantedFam, airTableFamilies):
         for fm in airTableFamilies:
             if fm['fields']['Record ID'] == transformFam:
                 if fm['fields']['Name'] == wantedFam:
-                    print('\tcheckFamily: Found Family: ' + fm['fields']['Name'])
                     ret = True
                     break
         return ret
@@ -40,39 +42,18 @@ def checkFamily(transformFam, wantedFam, airTableFamilies):
         return False
 
 
-# See if folder already exists, if not create it. if it does look to see if its STAGE has changed
-# if so move it to the correct folder
-def seeIfFolderExists(tfNme, stage, dsPth, fldPths):
+def seeIfFolderExists(tfNme, stage, dsPth, reportName):
     try:
-        stage = stripString(stage)
-        # This is the current stage of the ETL
-        pth = dsPth + '/' + stage.lower().replace(' ', '-') + '/' + tfNme
+        pth = dsPth + '/' + tfNme
         pth = Path(pth)
-        folderExists = False
-        # Test all stage folders to see if it already exists
-        for fp in fldPths:
-            loPth = fp + '/' + tfNme
-            loPth = Path(loPth)
-            if loPth.exists():
-                folderExists = True
-                print(f'\t\t\tPath: {loPth} - Folder already exists')
-                break
-        # If the folder DOES NOT exist then create it.
-        # if it exist check if it needs to be moved to a different stage
-        if not folderExists:
-            # Folder DOES NOT exist so create it
-            pth.mkdir(exist_ok=True, parents=True)
-            print('Folder created: ' + str(pth))
-            return pth
-        else:
-            # Folder exists so check if it has been moved to a different stage
-            if pth != loPth:
-                print('\tSTAGE has changed for ETL ::::::::::::::::::::::::::::::::::::::::::::::::::::::::')
-                print('\t\tFrom: ' + str(loPth))
-                print('\t\tTo:' + str(pth))
-                shutil.move(loPth, pth)
-                print('\tETL Moved ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::')
-            return loPth
+
+        if not pth.exists():
+            with open(reportName, "a") as repFle:
+                repFle.write('git add ' + tfNme + '\n')
+
+        pth.mkdir(exist_ok=True, parents=True)
+
+        return pth
     except Exception as e:
         return 'seeIfFolderExists FAILURE: ' + str(e)
 
@@ -88,7 +69,7 @@ def getDataType(datTpe, tpeCde):
                     break
         return ret
     except Exception as e:
-        return datTpe
+        return []
 
 
 def getProducer(mainPrd, prods):
@@ -101,7 +82,7 @@ def getProducer(mainPrd, prods):
                     break
         return ret
     except Exception as e:
-        return mainPrd
+        return []
 
 
 def createReferenceDirectory(rp, ds):
@@ -142,7 +123,6 @@ def stripString(theString):
 def createMainPYFile(pth, fNme, pyNme, jsNme):
     try:
         # Filename is set globally at the top of this script
-        print(f'Creating {pyNme} File')
         ret = f'# # {fNme.strip()} \n\n'
         ret += 'from gssutils import * \n'
         ret += 'import json \n\n'
@@ -163,13 +143,10 @@ def createMainPYFile(pth, fNme, pyNme, jsNme):
 
 def makeGithubIssue(title, family, stage, user):
     try:
-        print('\tmakeGithubIssue: Getting GitHub log in details')
         otp = gitHubDetails(user)
-        print('\t\tCreating Issue..............................')
         g = Github(otp)
         for repo in g.get_user().get_repos():
             if repo.name == family:
-                print('\t\t\tFound Repository: ' + repo.name)
                 myRepo = repo
                 break
         label = myRepo.get_label(stage)
@@ -182,9 +159,7 @@ def makeGithubIssue(title, family, stage, user):
 
 def checkIfIssueAlreadyExists(family, issueName, user):
     try:
-        print('\tcheckIfIssueAlreadyExists: Getting GitHub log in details')
         otp = gitHubDetails(user)
-        print('\t\tChecking if an OPEN issue already exists........')
         g = Github(otp)
         ret = -100
         repo = g.get_repo('GSS-Cogs/' + family)
@@ -192,11 +167,9 @@ def checkIfIssueAlreadyExists(family, issueName, user):
         for issue in open_issues:
             if issue.title == issueName:
                 ret = issue.number
-                print(f'\t\t\tMain Issue for {issueName} exists - Number: ' + str(ret))
                 break
         return ret
     except Exception as e:
-        print('Error checking issues: ' + str(e))
         return -100
 
 
@@ -217,24 +190,75 @@ def gitHubDetails(user):
         return 'Failed to get GitHub Token' + str(e)
 
 
-def findGithubProjects(family, user):
+def renameAndCloneGitHubFolder(fldr, fam, currDir, user, oneBackDrive):
     try:
-        print('============= Looking for Github Projects ================')
-        otp = gitHubDetails(user)
-        g = Github(otp)
-        for repo in g.get_user().get_repos():
-            if repo.name == family:
-                print('\t\t\tFound Repository: ' + repo.name)
-                myRepo = repo
-                break
-        print(myRepo)
-        try:
-            proj = g.get_project(g)
-            with open('//Users/leigh/Development/airtable-utils/paginated.json', "w") as output:
-                output.write(json.dumps(proj, sort_keys=True, indent=4))
-            output.close
-        except Exception as e:
-            print('Projects say NO!: ' + str(e))
-
+        os.rename(fldr, fldr + '_TEMP')
+        shutil.move(fldr + '_TEMP', oneBackDrive)
+        shutil.rmtree(fldr + '_TEMP')
+        print('\t Old folder moved now Cloning')
+        gitUrl = f'git@github.com:GSS-Cogs/{fam}.git'
+        Repo.clone_from(gitUrl, currDir)
+        return gitUrl + ' Repo Cloned'
     except Exception as e:
-        print('Failed looking for Projects: ' + str(e))
+        return 'Failed renaming and Cloning GitHub Folder: ' + str(e)
+
+
+def deleteRenamedGitHubFolder(fldr):
+    try:
+        if os.path.exists(fldr + '_TEMP') and os.path.isdir(fldr + '_TEMP'):
+            shutil.rmtree(fldr + '_TEMP')
+        print('Deleted temp GitHub Folder')
+    except Exception as e:
+        return 'Failed to delete GitHub Folder: ' + str(e)
+
+
+def addCommitPushtoGit(fam):
+    #try:
+    print('Push to Github')
+    r = Repo(f'git@github.com:GSS-Cogs/{fam}.git')
+    r.git.add(all=True)
+    r.index.commit('******************** Updating GitHub Repository *********************')
+    origin = r.remote(name='origin')
+    origin.push()
+    print('Committed')
+    #except Exception as e:
+        #print('Failed when adding-commiting-pushing to git: ' + str(e))
+
+
+# def seeIfFolderExists(tfNme, stage, dsPth):
+#    try:
+#        stage = stripString(stage)
+#        # This is the current stage of the ETL
+#        pth = dsPth + '/' + tfNme
+#        pth = Path(pth)
+#        folderExists = False
+#        # Test all stage folders to see if it already exists
+#        for fp in fldPths:
+#            loPth = fp + '/' + tfNme
+#            loPth = Path(loPth)
+#            if loPth.exists():
+#                folderExists = True
+#                print(f'\t\t\tPath: {loPth} - Folder already exists')
+#                break
+#        # If the folder DOES NOT exist then create it.
+#        # if it exist check if it needs to be moved to a different stage
+#        if not folderExists:
+#        # Folder DOES NOT exist so create it
+#            pth.mkdir(exist_ok=True, parents=True)
+#            print('Folder created: ' + str(pth))
+#            return pth
+#        else:
+#            # Folder xists so check if it has been moved to a different stage
+#            if pth != loPth:
+#                print('\tSTAGE has changed for ETL ::::::::::::::::::::::::::::::::::::::::::::::::::::::::')
+#                print('\t\tFrom: ' + str(loPth))
+#                print('\t\tTo:' + str(pth))
+#                shutil.move(loPth, pth)
+#                print('\tETL Moved ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::')
+
+#            return loPth
+#    except Exception as e:
+#        return 'seeIfFolderExists FAILURE: ' + str(e)
+
+
+
