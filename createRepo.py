@@ -19,12 +19,20 @@ printStatements = True
 try:
     print('Accessing AirTable Data')
     dataTables = at.getAirTableETLRecords()
+    try:
+        if dataTables[0] == 'F':
+            ret = 'Failed'
+            print('Failed to access AirTable: ' + dataTables[1])
+    except Exception as e:
+        print('ok')
+
     srcDat = dataTables[0]
     famDat = dataTables[1]
     prdDat = dataTables[2]
     tpeDat = dataTables[3]
     pmdDat = dataTables[4]
     ret = 'success'
+
 except Exception as e:
     ret = 'AirTable failure: ' + str(e)
 
@@ -96,7 +104,7 @@ try:
                             # Check if the main issue (OPEN) already exists for this transform, if not then create it
                             # if it does exist then get the issue number and pass to make json file method
                             print('\t\t\tChecking if GitHub Issue already exists')
-                            isNum = ut.checkIfIssueAlreadyExists(family, nme, user)
+                            isNum = ut.checkIfIssueAlreadyExists(family, nme1, user)
                             #if isNum == -100:
                             #    print('\t\t\t\tCreating GitHub Issue')
                             #    isNum = ut.makeGithubIssue(nme, family, stg, user)
@@ -110,8 +118,7 @@ try:
 
                             # You can overwrite the JSON file in case some details have changed like Landing Page
                             print('\t\t\t\t\t\tCreating/Updating info.json file')
-                            ut.createInfoJSONFile(retPath, i['fields'], isNum, jsonFileName)
-
+                            ut.createInfoJSONFile(retPath, i, isNum, jsonFileName, nme)
                     #break
                 except Exception as e:
                     print('============== INNER srcDat loop failure: ' + str(e))

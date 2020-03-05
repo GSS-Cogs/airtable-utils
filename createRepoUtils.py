@@ -8,10 +8,17 @@ from gssutils import *
 import secrets as ss
 
 
-def createInfoJSONFile(pth, jsonDict, inx, fleNme):
+def createInfoJSONFile(pth, jsonInfo, inx, fleNme, gitNme):
     try:
-        # Add the git issue number to the dictionary
+        # Add the git issue number, record ID and creation date to the dictionary
+        jsonDict = jsonInfo['fields']
         jsonDict['Main Issue'] = str(inx)
+        jsonDict['GitHub Name'] = gitNme
+        try:
+            jsonDict['AirTable Record ID'] = jsonInfo['id']
+            jsonDict['AirTable creation date'] = jsonInfo['createdTime']
+        except Exception as e:
+            print('Empty Record ID or Creation Date when adding to Dictionary')
         # Filename is set globally at the top of this script
         with open(pth / fleNme, "w") as output:
             output.write(json.dumps(jsonDict, sort_keys=True, indent=4))

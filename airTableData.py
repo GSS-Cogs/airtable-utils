@@ -42,34 +42,37 @@ def getLoginDetails():
 
 
 def getAirTableETLRecords():
+    try:
+        keys = getLoginDetails()
+        key = str(keys[0])
+        encryptedKey = str(keys[1])
 
-    keys = getLoginDetails()
-    key = str(keys[0])
-    encryptedKey = str(keys[1])
+        # Get all the information from AirTable - USE YOUR OWN API KEY HERE
+        ########################################################################################################
+        srcAirTbl = Airtable(baseKey, srcTblNme, api_key=str(decrypt(encryptedKey.encode(), key).decode()))
+        famAirTbl = Airtable(baseKey, famTblNme, api_key=str(decrypt(encryptedKey.encode(), key).decode()))
+        prdAirTbl = Airtable(baseKey, prdTblNme, api_key=str(decrypt(encryptedKey.encode(), key).decode()))
+        tpeAirTbl = Airtable(baseKey, tpeTblNme, api_key=str(decrypt(encryptedKey.encode(), key).decode()))
+        pmdAirTbl = Airtable(baseKey, pmdTblNme, api_key=str(decrypt(encryptedKey.encode(), key).decode()))
+        ########################################################################################################
 
-    # Get all the information from AirTable - USE YOUR OWN API KEY HERE
-    ########################################################################################################
-    srcAirTbl = Airtable(baseKey, srcTblNme, api_key=str(decrypt(encryptedKey.encode(), key).decode()))
-    famAirTbl = Airtable(baseKey, famTblNme, api_key=str(decrypt(encryptedKey.encode(), key).decode()))
-    prdAirTbl = Airtable(baseKey, prdTblNme, api_key=str(decrypt(encryptedKey.encode(), key).decode()))
-    tpeAirTbl = Airtable(baseKey, tpeTblNme, api_key=str(decrypt(encryptedKey.encode(), key).decode()))
-    pmdAirTbl = Airtable(baseKey, pmdTblNme, api_key=str(decrypt(encryptedKey.encode(), key).decode()))
-    ########################################################################################################
+        # -------------------------------------------------------------------------------------------------------------
 
-    # -------------------------------------------------------------------------------------------------------------
+        # Get all the table data from Airtable
+        srcDat = srcAirTbl.get_all()
+        famDat = famAirTbl.get_all()
+        prdDat = prdAirTbl.get_all()
+        tpeDat = tpeAirTbl.get_all()
+        pmdDat = pmdAirTbl.get_all()
 
-    # Get all the table data from Airtable
-    srcDat = srcAirTbl.get_all()
-    famDat = famAirTbl.get_all()
-    prdDat = prdAirTbl.get_all()
-    tpeDat = tpeAirTbl.get_all()
-    pmdDat = pmdAirTbl.get_all()
+        # Convert the table data into DataFrame format
+        #srcDat = pd.DataFrame.from_records((r['fields'] for r in srcDat))
 
-    # Convert the table data into DataFrame format
-    #srcDat = pd.DataFrame.from_records((r['fields'] for r in srcDat))
+        # -------------------------------------------------------------------------------------------------------------
+        retTbls = [srcDat, famDat, prdDat, tpeDat, pmdDat]
+    except Exception as e:
+        retTbls = ['F', str(e), '', '', '']
 
-    # -------------------------------------------------------------------------------------------------------------
-    retTbls = [srcDat, famDat, prdDat, tpeDat, pmdDat]
     return retTbls
 
 
