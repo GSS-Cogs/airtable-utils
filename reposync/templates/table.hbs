@@ -1,0 +1,32 @@
+<h1>{{family}} Dataset Family</h1>
+
+<table class="table table-striped table-bordered">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Publisher</th>
+      <th>Dataset</th>
+      <th>Tracking</th>
+      <th>Status</th>
+    </tr>
+  </thead>
+  <tbody>
+    {{#each pipelines}}
+    <tr>
+      <td>{{number}}</td>
+      <td>{{info.publisher}}</td>
+      <td><a href="?{{directory}}">{{info.title}}</a></td>
+      <td>
+        {{#if info.transform.main_issue}}
+        <a href="{{../github}}/issues/{{info.transform.main_issue}}"><i style="color: black;" class="fab fa-github-alt"></i> #{{info.transform.main_issue}}</a>
+        {{/if}}
+      </td>
+      <td>
+        <a href='{{../jenkins_base}}/{{../jenkins_path}}/job/{{directory}}/'>
+        <img src='{{../jenkins_base}}/{{../jenkins_buildicon}}{{directory}}' />
+        </a>
+      </td>
+    </tr>
+    {{/each}}
+  </tbody>
+</table>

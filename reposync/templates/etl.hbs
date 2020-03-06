@@ -1,0 +1,140 @@
+<div class="row">
+  <div class="col border p-2">
+    <span class="font-weight-bold">Title: </span>{{dataset.title}}
+  </div>
+</div>
+<div class="row">
+  <div class="col border-bottom border-right border-left p-2">
+    <span class="font-weight-bold">Publisher: </span>{{dataset.publisher}}
+  </div>
+</div>
+<div class="row">
+  <div class="col border-bottom border-right border-left p-2">
+    <div class="font-weight-bold">Description:</div>
+    <div>{{dataset.description}}</div>
+  </div>
+  <div class="col border-bottom border-right p-2">
+    <div class="font-weight-bold">Landing page:</div>
+    <div><a href="{{dataset.landingPage}}">{{dataset.landingPage}}</a></div>
+  </div>
+</div>
+<div class="row">
+  <div class="col border-bottom border-right border-left p-2">
+    <div class="font-weight-bold">Contacts:</div>
+    {{#each dataset.contacts}}
+      <div>{{this.name}}</div>
+      <div>{{this.tel}}</div>
+      <div><a href="mailto:{{this.email}}">{{this.email}}</a></div>
+    {{/each}}
+  </div>
+  <div class="col border-bottom border-right p-2">
+    <div class="font-weight-bold">Finding the dataset / distribution:</div>
+    <div>
+      {{#if dataset.datasetNotes}}
+      <ol>
+        {{#each dataset.datasetNotes}}
+        <li>{{this}}</li>
+        {{/each}}
+        </ol>
+    {{/if}}
+    </div>
+  </div>
+</div>
+<div class="row">
+  <div class="col border-bottom border-right border-left p-2">
+    <div class="font-weight-bold">Published:</div>
+    <div>{{dataset.published}}</div>
+  </div>
+  <div class="col border-bottom border-right p-2">
+    <div class="font-weight-bold">Families:</div>
+    {{#each dataset.families}}
+      {{this}}{{#unless @last}}, {{/unless}}
+    {{/each}}
+  </div>
+</div>
+<div class="row">
+  <div class="col border-bottom border-right border-left p-2">
+    <span class="font-weight-bold">RAP:</span>
+    <span>{{#if dataset.rap}}{{dataset.rap}}{{/if}}</span>
+  </div>
+  <div class="col border-bottom border-right p-2">
+    <span class="font-weight-bold">Stability:</span>
+    <span>{{#if dataset.stability}}{{dataset.stability}}{{/if}}</span>
+  </div>
+  <div class="col border-bottom border-right p-2">
+    <span class="font-weight-bold">Future:</span>
+    <span>{{#if dataset.future}}{{dataset.future}}{{/if}}</span>
+  </div>
+</div>
+<div class="row">
+  <div class="col border-bottom border-right border-left p-2">
+    <div class="font-weight-bold text-center">Extract</div>
+    <div class="text-center" style="font-size: 3rem; color: #19683d"><i class="fas fa-file-excel"></i></div>
+  </div>
+  <div class="col border-bottom border-right p-2">
+    <div class="font-weight-bold text-center">Transform</div>
+    <div class="text-center" style="font-size: 3rem"><i class="fas fa-long-arrow-alt-right"></i></div>
+  </div>
+  <div class="col border-bottom border-right p-2">
+    <div class="font-weight-bold text-center">Load</div>
+    <div class="text-center" style="font-size: 3rem; color: purple"><i class="fas fa-truck-loading"></i></div>
+  </div>
+</div>
+<div class="row">
+  <div class="col border-bottom border-right border-left p-2">
+    <div>
+      <span class="font-weight-bold">Source:</span>
+      <span>{{dataset.extract.source}}</span>
+    </div>
+    <div>
+      <span class="font-weight-bold">Subset:</span>
+      <span>{{dataset.extract.subset}}</span>
+    </div>
+  </div>
+  <div class="col border-bottom border-right p-2">
+    {{#if dataset.transform.main_issue}}
+    <div>
+        <span class="font-weight-bold">Tracking:</span>
+        <span><a href="{{main.github}}/issues/{{dataset.transform.main_issue}}">GitHub issue #{{dataset.transform.main_issue}}</a></span>
+    </div>
+    {{/if}}
+    {{#if main.jenkins}}
+    <div>
+        <span class="font-weight-bold">Jenkins:</span>
+        <span><a href="{{main.jenkins.base}}/{{jenkins_path}}/job/{{dataset_path}}">
+            <img src="{{main.jenkins.base}}/{{jenkins_buildicon}}{{dataset_path}}"/>
+        </a></span>
+    </div>
+    {{/if}}
+  </div>
+  <div class="col border-bottom border-right p-2">
+  </div>
+</div>
+<div class="row">
+  <div class="col border-bottom border-right border-left p-2">
+    <div>
+      <div class="font-weight-bold">Breakdowns:</div>
+      {{#each dataset.extract.breakdowns}}
+        <div>
+          {{#ifObject this}}
+            {{#each this}}
+              {{@key}}: {{#each this}}{{this}}{{#unless @last}}, {{/unless}}{{/each}}
+            {{/each}}
+      {{else}}
+        {{this}}
+          {{/ifObject}}
+        </div>
+      {{/each}}
+    </div>
+  </div>
+  <div class="col border-bottom border-right p-2">
+  </div>
+  <div class="col border-bottom border-right p-2">
+  </div>
+</div>
+<div class="row">
+  <div class="col border-bottom border-right border-left p-2">
+      <div class="font-weight-bold">Notes:</div>
+      <div>{{dataset.notes}}</div>
+  </div>
+</div>

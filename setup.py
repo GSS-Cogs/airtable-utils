@@ -24,4 +24,5 @@ setuptools.setup(
     entry_points={
         'console_scripts': ['repo-sync=reposync.reposync:sync']
     },
+    include_package_data=True,
 )

@@ -2,13 +2,20 @@
 
 import argparse
 import json
+import shutil
 from pathlib import Path
 import os
 import re
+from importlib import resources
 
+from github import Github, UnknownObjectException
 from airtable import Airtable
 
-TOKEN_FILE = Path.home() / '.config' / 'airtable' / 'token'
+from reposync import templates
+
+REPOSYNC_CONFIG = Path.home() / '.config' / 'reposync'
+AIRTABLE_TOKEN_FILE = REPOSYNC_CONFIG / 'airtable-token'
+GITHUB_TOKEN_FILE = REPOSYNC_CONFIG / 'github-token'
 
 
 def pathify(label):
@@ -40,36 +47,73 @@ def update_info(info, source, producers, families, types, source_id):
     info['notes'] = source.get('Notes', '').strip()
 
 
-def update_github(issue_no, source):
-    pass
+GITHUB_BASE = 'https://github.com/'
+
+
+def update_github(issue_no, source, github_token, repo_url, writeback):
+    if not repo_url.startswith(GITHUB_BASE):
+        print(f'Github repo URL not recognised {repo_url}.')
+        return
+    elif issue_no <= 0:
+        print(f'Github issue number not valid: {issue_no}.')
+        return
+    else:
+        g = Github(github_token)
+        try:
+            repo = g.get_repo(repo_url[len(GITHUB_BASE):])
+        except UnknownObjectException:
+            print(f'Unknown repo {repo_url[len(GITHUB_BASE):]}')
+            return
+        issue = repo.get_issue(number=issue_no)
+        ba_labels = [label for label in issue.get_labels() if label.name.startswith('BA')]
+        if 'Stage' in source:
+            source_label = f'BA {source["Stage"]}'
+            if len(ba_labels) != 1 or ba_labels[0].name != source_label:
+                for label in ba_labels:
+                    print(f'Need to removing label "{label.name}" from issue {issue_no}')
+                    if writeback:
+                        issue.remove_from_labels(label)
+                        print('Removed.')
+                print(f'Need to add label "{source_label}" for issue {issue_no}')
+                if writeback:
+                    issue.add_to_labels(source_label)
+                    print('Added.')
+
+
+def update_web_pages(root_dir):
+    for resource in resources.contents(templates):
+        if resource.endswith('.html') or resource.endswith('.js') or resource.endswith('.hbs'):
+            with resources.path(templates, resource) as file_path:
+                shutil.copy(file_path, root_dir / resource)
 
 
 def sync():
     parser = argparse.ArgumentParser(description='Create / sync family transformations.')
-    parser.add_argument('family', help='Datasets family to create/sync')
+    parser.add_argument('--family', '-f', help='Datasets family to create/sync')
+    parser.add_argument('--github', '-g', help='Update/create GitHub issues related', action='store_true')
     args = parser.parse_args()
 
     if 'AIRTABLE_API_KEY' in os.environ:
-        token = os.environ['AIRTABLE_API_KEY']
-    elif TOKEN_FILE.exists():
-        with open(TOKEN_FILE) as tf:
-            token = tf.readline().rstrip('\n')
+        airtable_token = os.environ['AIRTABLE_API_KEY']
+    elif AIRTABLE_TOKEN_FILE.exists():
+        with open(AIRTABLE_TOKEN_FILE) as tf:
+            airtable_token = tf.readline().rstrip('\n')
     else:
         parser.error(f"""Unable to find Airtable API token. Either use an environment variable, AIRTABLE_API_KEY,
-or put the token in the file {TOKEN_FILE}""")
+or put the token in the file {AIRTABLE_TOKEN_FILE}""")
+
+    if GITHUB_TOKEN_FILE.exists():
+        with open(GITHUB_TOKEN_FILE) as tf:
+            github_token = tf.readline().rstrip('\n')
+    else:
+        github_token = None
 
     base = 'appb66460atpZjzMq'
 
-    sources = { record['id']: record['fields'] for record in Airtable(base, 'Source Data', api_key=token).get_all() }
-    families = { record['id']: record['fields'] for record in Airtable(base, 'Family', api_key=token).get_all() }
-    producers = { record['id']: record['fields'] for record in Airtable(base, 'Dataset Producer', api_key=token).get_all() }
-    types = { record['id']: record['fields'] for record in Airtable(base, 'Type', api_key=token).get_all() }
-
-    family_id = next((id for (id, family) in families.items() if family['Name'] == args.family), None)
-    if family_id is None:
-        family_names = [family['Name'] for family in families.values()]
-        family_list = " - " + ",\n - ".join(family_names)
-        parser.error(f"Family '{args.family}' doesn't exist, choose from:\n{family_list}")
+    sources = { record['id']: record['fields'] for record in Airtable(base, 'Source Data', api_key=airtable_token).get_all() }
+    families = { record['id']: record['fields'] for record in Airtable(base, 'Family', api_key=airtable_token).get_all() }
+    producers = { record['id']: record['fields'] for record in Airtable(base, 'Dataset Producer', api_key=airtable_token).get_all() }
+    types = { record['id']: record['fields'] for record in Airtable(base, 'Type', api_key=airtable_token).get_all() }
 
     datasets_path = Path('datasets')
     datasets_path.mkdir(exist_ok=True)
@@ -80,7 +124,22 @@ or put the token in the file {TOKEN_FILE}""")
             main_info = json.load(info_file)
     else:
         main_info = {}
+
+    if args.family is not None:
+        family_name = args.family
+    elif 'family' in main_info:
+        family_name = main_info['family']
+
+    family_id = next((id for (id, family) in families.items() if family['Name'] == family_name), None)
+    if family_id is None:
+        parser.error(f'Family "{family_name}" not found.')
+
     main_info['family'] = families[family_id]["Name"]
+
+    if family_id is None:
+        family_names = [family['Name'] for family in families.values()]
+        family_list = " - " + ",\n - ".join(family_names)
+        parser.error(f"Family '{args.family}' doesn't exist, choose from:\n{family_list}")
 
     source_dataset_path = {}
     for existing_pipeline in main_info['pipelines']:
@@ -96,7 +155,13 @@ or put the token in the file {TOKEN_FILE}""")
         if 'Family' in source and family_id in source['Family']:
             if 'Producer' in source and len(source['Producer']) == 1:
                 producer = producers[source['Producer'][0]]['Name']
-                dataset_dir = source_dataset_path.get(source_id, f"{producer}-{pathify(source['Name'])}")
+                if source_id in source_dataset_path:
+                    dataset_dir = source_dataset_path[source_id]
+                elif 'Name' in source:
+                    dataset_dir = f"{producer}-{pathify(source['Name'])}"
+                else:
+                    print(f'No existing dataset directory for source, and source has no name, so ignoring:\n{source}')
+                    continue
                 prioritized = 'Stage' in source and source['Stage'] == 'Prioritized'
                 if not (datasets_path / dataset_dir).exists() and prioritized:
                     (datasets_path / dataset_dir).mkdir(parents=True)
@@ -109,8 +174,9 @@ or put the token in the file {TOKEN_FILE}""")
                 else:
                     dataset_info = {}
                 update_info(dataset_info, source, producers, families, types, source_id)
-                if 'main_issue' in dataset_info['transform']:
-                    update_github(dataset_info['transform']['main_issue'], source)
+                if 'main_issue' in dataset_info['transform'] and 'github' in main_info:
+                    update_github(dataset_info['transform']['main_issue'],
+                                  source, github_token, main_info['github'], args.github)
 
                 if sync_info or prioritized:
                     pipelines.append(dataset_dir)
@@ -120,6 +186,8 @@ or put the token in the file {TOKEN_FILE}""")
     main_info['pipelines'] = sorted(pipelines)
     with open(main_info_file, 'w') as info_file:
         json.dump(main_info, info_file, indent=4)
+
+    update_web_pages(datasets_path)
 
 
 if __name__ == "__main__":
