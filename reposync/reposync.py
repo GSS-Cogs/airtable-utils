@@ -40,6 +40,8 @@ def update_info(info, source, producers, families, types, source_id):
     if 'extract' not in info:
         info['extract'] = {}
     info['extract']['source'] = ', '.join(types[ref]['Name'] for ref in source.get('Data type', []))
+    if 'Stage' in source:
+        info['extract']['stage'] = source['Stage']
     if 'transform' not in info:
         info['transform'] = {}
     info['transform']['airtable'] = source_id
@@ -91,6 +93,7 @@ def sync():
     parser = argparse.ArgumentParser(description='Create / sync family transformations.')
     parser.add_argument('--family', '-f', help='Datasets family to create/sync')
     parser.add_argument('--github', '-g', help='Update/create GitHub issues related', action='store_true')
+    parser.add_argument('--all', '-a', help='Include non-prioritized datasets.', action='store_true')
     args = parser.parse_args()
 
     if 'AIRTABLE_API_KEY' in os.environ:
@@ -142,7 +145,7 @@ or put the token in the file {AIRTABLE_TOKEN_FILE}""")
         parser.error(f"Family '{args.family}' doesn't exist, choose from:\n{family_list}")
 
     source_dataset_path = {}
-    for existing_pipeline in main_info['pipelines']:
+    for existing_pipeline in main_info.get('pipelines', []):
         dataset_info_path = datasets_path / existing_pipeline / 'info.json'
         if dataset_info_path.exists():
             with open(dataset_info_path) as info_file:
@@ -163,7 +166,7 @@ or put the token in the file {AIRTABLE_TOKEN_FILE}""")
                     print(f'No existing dataset directory for source, and source has no name, so ignoring:\n{source}')
                     continue
                 prioritized = 'Stage' in source and source['Stage'] == 'Prioritized'
-                if not (datasets_path / dataset_dir).exists() and prioritized:
+                if not (datasets_path / dataset_dir).exists() and (prioritized or args.all):
                     (datasets_path / dataset_dir).mkdir(parents=True)
                 dataset_info_path = datasets_path / dataset_dir / 'info.json'
                 sync_info = False
@@ -178,7 +181,7 @@ or put the token in the file {AIRTABLE_TOKEN_FILE}""")
                     update_github(dataset_info['transform']['main_issue'],
                                   source, github_token, main_info['github'], args.github)
 
-                if sync_info or prioritized:
+                if sync_info or prioritized or args.all:
                     pipelines.append(dataset_dir)
                     with open(dataset_info_path, 'w') as info_file:
                         json.dump(dataset_info, info_file, indent=4)
