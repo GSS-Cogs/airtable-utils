@@ -1,0 +1,6 @@
+.eggs
+.idea
+build
+dist
+*.egg-info
+airtable-utils.iml
