@@ -6,16 +6,18 @@
       <th></th>
       <th>Publisher</th>
       <th>Dataset</th>
+      <th>Extract Stage</th>
       <th>Tracking</th>
-      <th>Status</th>
+      <th>Transform Status</th>
     </tr>
   </thead>
   <tbody>
     {{#each pipelines}}
-    <tr>
+    <tr class="{{rowClass ../family info}}">
       <td>{{number}}</td>
       <td>{{info.publisher}}</td>
       <td><a href="?{{directory}}">{{info.title}}</a></td>
+      <td>{{info.extract.stage}}</td>
       <td>
         {{#if info.transform.main_issue}}
         <a href="{{../github}}/issues/{{info.transform.main_issue}}"><i style="color: black;" class="fab fa-github-alt"></i> #{{info.transform.main_issue}}</a>

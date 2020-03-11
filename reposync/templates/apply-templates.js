@@ -26,6 +26,19 @@ if (dataset) {
         });
     });
 } else {
+    Handlebars.registerHelper('rowClass', function(f, i) {
+      if (i.hasOwnProperty('families') && !i.families.includes(f)) {
+        return 'text-danger';
+      } else if (i.hasOwnProperty('extract') && i.extract.hasOwnProperty('stage')) {
+        if (i.extract.stage == 'Prioritized') {
+          return 'text-body';
+        } else {
+          return 'text-muted';
+        }
+      } else {
+        return 'text-body';
+      }
+    });
     $.get({
         url: "table.hbs",
         datatype: "html",
