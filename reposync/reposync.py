@@ -3,6 +3,7 @@
 import argparse
 import json
 import shutil
+from json import JSONDecodeError
 from pathlib import Path
 import os
 import re
@@ -11,7 +12,7 @@ from importlib import resources
 from github import Github, UnknownObjectException
 from airtable import Airtable
 
-from reposync import templates
+from . import templates
 
 REPOSYNC_CONFIG = Path.home() / '.config' / 'reposync'
 AIRTABLE_TOKEN_FILE = REPOSYNC_CONFIG / 'airtable-token'
@@ -132,6 +133,8 @@ or put the token in the file {AIRTABLE_TOKEN_FILE}""")
         family_name = args.family
     elif 'family' in main_info:
         family_name = main_info['family']
+    else:
+        parser.error('No family argument given and no family found in info.json')
 
     family_id = next((id for (id, family) in families.items() if family['Name'] == family_name), None)
     if family_id is None:
@@ -145,17 +148,26 @@ or put the token in the file {AIRTABLE_TOKEN_FILE}""")
         parser.error(f"Family '{args.family}' doesn't exist, choose from:\n{family_list}")
 
     source_dataset_path = {}
-    for existing_pipeline in main_info.get('pipelines', []):
-        dataset_info_path = datasets_path / existing_pipeline / 'info.json'
-        if dataset_info_path.exists():
-            with open(dataset_info_path) as info_file:
-                dataset_info = json.load(info_file)
-            if 'transform' in dataset_info and 'airtable' in dataset_info['transform']:
-                source_dataset_path[dataset_info['transform']['airtable']] = existing_pipeline
+    for existing_pipeline in datasets_path.iterdir():
+        if existing_pipeline.is_dir():
+            dataset_info_path = existing_pipeline / 'info.json'
+            if dataset_info_path.exists():
+                with open(dataset_info_path) as info_file:
+                    try:
+                        dataset_info = json.load(info_file)
+                    except JSONDecodeError as e:
+                        print(f'Warning: problem reading {dataset_info_path}:\n{e}')
+                        continue
+                if 'transform' in dataset_info and 'airtable' in dataset_info['transform']:
+                    recordId = dataset_info['transform']['airtable']
+                    if recordId not in source_dataset_path:
+                        source_dataset_path[dataset_info['transform']['airtable']] = existing_pipeline.name
+                    else:
+                        print(f'Warning: duplicate record ID {recordId} in {existing_pipeline.name} and {source_dataset_path[recordId]}')
 
     pipelines = []
     for source_id, source in sources.items():
-        if 'Family' in source and family_id in source['Family']:
+        if ('Family' in source and family_id in source['Family']) or (source_id in source_dataset_path):
             if 'Producer' in source and len(source['Producer']) == 1:
                 producer = producers[source['Producer'][0]]['Name']
                 if source_id in source_dataset_path:
