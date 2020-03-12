@@ -3,6 +3,7 @@
 import argparse
 import json
 import shutil
+from collections import defaultdict
 from json import JSONDecodeError
 from pathlib import Path
 import os
@@ -28,7 +29,7 @@ def pathify(label):
                          re.sub(r'[^\w/]', '-', label)))
 
 
-def update_info(info, source, producers, families, types, source_id):
+def update_info(info, source, producers, families, types, source_ids):
     info['title'] = source.get('Name', '').strip()
     info['publisher'] = producers[source['Producer'][0]]['Full Name'].strip()
     info['description'] = source.get('Description', '').strip()
@@ -45,7 +46,10 @@ def update_info(info, source, producers, families, types, source_id):
         info['extract']['stage'] = source['Stage']
     if 'transform' not in info:
         info['transform'] = {}
-    info['transform']['airtable'] = source_id
+    if len(source_ids) == 1:
+        info['transform']['airtable'] = source_ids[0]
+    else:
+        info['transform']['airtable'] = source_ids
     info['sizingNotes'] = source.get('Sizing Notes', '').strip()
     info['notes'] = source.get('Notes', '').strip()
 
@@ -159,13 +163,17 @@ or put the token in the file {AIRTABLE_TOKEN_FILE}""")
                         print(f'Warning: problem reading {dataset_info_path}:\n{e}')
                         continue
                 if 'transform' in dataset_info and 'airtable' in dataset_info['transform']:
-                    recordId = dataset_info['transform']['airtable']
-                    if recordId not in source_dataset_path:
-                        source_dataset_path[dataset_info['transform']['airtable']] = existing_pipeline.name
-                    else:
-                        print(f'Warning: duplicate record ID {recordId} in {existing_pipeline.name} and {source_dataset_path[recordId]}')
+                    recordIds = dataset_info['transform']['airtable']
+                    if type(recordIds) != list:
+                        recordIds = [recordIds]
+                    for recordId in recordIds:
+                        if recordId not in source_dataset_path:
+                            source_dataset_path[recordId] = existing_pipeline.name
+                        else:
+                            print(f'Warning: duplicate record ID {recordId} in {existing_pipeline.name} and {source_dataset_path[recordId]}')
 
     pipelines = []
+    dataset_path_source = defaultdict(list)
     for source_id, source in sources.items():
         if ('Family' in source and family_id in source['Family']) or (source_id in source_dataset_path):
             if 'Producer' in source and len(source['Producer']) == 1:
@@ -188,7 +196,8 @@ or put the token in the file {AIRTABLE_TOKEN_FILE}""")
                         dataset_info = json.load(info_file)
                 else:
                     dataset_info = {}
-                update_info(dataset_info, source, producers, families, types, source_id)
+                dataset_path_source[dataset_dir].append(source_id)
+                update_info(dataset_info, source, producers, families, types, dataset_path_source[dataset_dir])
                 if 'main_issue' in dataset_info['transform'] and 'github' in main_info:
                     update_github(dataset_info['transform']['main_issue'],
                                   source, github_token, main_info['github'], args.github)
