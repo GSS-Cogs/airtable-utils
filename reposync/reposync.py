@@ -207,7 +207,7 @@ or put the token in the file {AIRTABLE_TOKEN_FILE}""")
                     with open(dataset_info_path, 'w') as info_file:
                         json.dump(dataset_info, info_file, indent=4)
 
-    main_info['pipelines'] = sorted(pipelines)
+    main_info['pipelines'] = sorted(set(pipelines))
     with open(main_info_file, 'w') as info_file:
         json.dump(main_info, info_file, indent=4)
 
