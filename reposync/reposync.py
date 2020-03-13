@@ -57,11 +57,11 @@ def update_info(info, source, producers, families, types, source_ids):
 GITHUB_BASE = 'https://github.com/'
 
 
-def update_github(issue_no, source, github_token, repo_url, writeback):
+def update_github(issue_no, title, source, github_token, repo_url, writeback):
     if not repo_url.startswith(GITHUB_BASE):
         print(f'Github repo URL not recognised {repo_url}.')
         return
-    elif issue_no <= 0:
+    elif issue_no is not None and issue_no <= 0:
         print(f'Github issue number not valid: {issue_no}.')
         return
     else:
@@ -71,7 +71,18 @@ def update_github(issue_no, source, github_token, repo_url, writeback):
         except UnknownObjectException:
             print(f'Unknown repo {repo_url[len(GITHUB_BASE):]}')
             return
-        issue = repo.get_issue(number=issue_no)
+        if issue_no is None:
+            # search through issues for a match against the expected title
+            issue = next((i for i in repo.get_issues() if i.title == title), None)
+            if issue is None:
+                print(f"Need to create new GitHub issue for {title}")
+                if writeback:
+                    issue = repo.create_issue(title)
+        else:
+            issue = repo.get_issue(number=issue_no)
+        if issue is None:
+            print(f'No GitHub issue for {title}')
+            return None
         ba_labels = [label for label in issue.get_labels() if label.name.startswith('BA')]
         if 'Stage' in source:
             source_label = f'BA {source["Stage"]}'
@@ -85,6 +96,7 @@ def update_github(issue_no, source, github_token, repo_url, writeback):
                 if writeback:
                     issue.add_to_labels(source_label)
                     print('Added.')
+        return issue.number
 
 
 def update_web_pages(root_dir):
@@ -198,9 +210,13 @@ or put the token in the file {AIRTABLE_TOKEN_FILE}""")
                     dataset_info = {}
                 dataset_path_source[dataset_dir].append(source_id)
                 update_info(dataset_info, source, producers, families, types, dataset_path_source[dataset_dir])
-                if 'main_issue' in dataset_info['transform'] and 'github' in main_info:
-                    update_github(dataset_info['transform']['main_issue'],
-                                  source, github_token, main_info['github'], args.github)
+                if 'github' in main_info:
+                    issue_number = update_github(dataset_info.get('transform', {}).get('main_issue', None),
+                                                 dataset_dir, source, github_token, main_info['github'], args.github)
+                    if issue_number is not None:
+                        if 'transform' not in dataset_info:
+                            dataset_info['transform'] = {}
+                        dataset_info['transform']['main_issue'] = issue_number
 
                 if sync_info or prioritized or args.all:
                     pipelines.append(dataset_dir)
