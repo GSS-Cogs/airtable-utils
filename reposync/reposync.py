@@ -4,20 +4,26 @@ import argparse
 import json
 import shutil
 from collections import defaultdict
+from difflib import Differ
 from json import JSONDecodeError
 from pathlib import Path
 import os
 import re
 from importlib import resources
+from string import Template
+from sys import stderr
+from lxml.etree import canonicalize
 
 from github import Github, UnknownObjectException
 from airtable import Airtable
+from jenkins import Jenkins, JenkinsException
 
 from . import templates
 
 REPOSYNC_CONFIG = Path.home() / '.config' / 'reposync'
 AIRTABLE_TOKEN_FILE = REPOSYNC_CONFIG / 'airtable-token'
 GITHUB_TOKEN_FILE = REPOSYNC_CONFIG / 'github-token'
+JENKINS_TOKEN_FILE = REPOSYNC_CONFIG / 'jenkins-token'
 
 
 def pathify(label):
@@ -106,11 +112,49 @@ def update_web_pages(root_dir):
                 shutil.copy(file_path, root_dir / resource)
 
 
+def update_jenkins(base, path, creds, name, writeback, github_home):
+    server = Jenkins(base, username=creds['username'], password=creds['token'])
+    full_job_name = '/'.join(path) + '/' + name
+    if server.job_exists(full_job_name):
+        job = server.get_job_info(full_job_name)
+        print(f'Found Jenkins job for {full_job_name}')
+    else:
+        print(f'Jenkins job {full_job_name} doesn''t exist.')
+        job = None
+
+    job_template = Template(resources.read_text(templates, 'jenkins_job.xml'))
+    config_xml = job_template.substitute(github_home=github_home,
+                                         git_clone_url=github_home+'.git',
+                                         dataset_dir=name)
+    config_xml = canonicalize(config_xml)
+
+    if job is None and writeback:
+        print(f'Creating new job {full_job_name}')
+        try:
+            server.create_job(full_job_name, config_xml)
+        except JenkinsException as e:
+            print(f'Failed creating job:\n{e}')
+    elif job is not None:
+        current_xml = canonicalize(server.get_job_config(full_job_name))
+        if current_xml != config_xml:
+            print(f'Jenkins job {full_job_name} needs update:')
+            stderr.writelines(Differ().compare(current_xml.splitlines(keepends=True),
+                                               config_xml.splitlines(keepends=True)))
+            if writeback:
+                if input(f'Are you sure you want to update configuration for {full_job_name} (y/n) ? ') == 'y':
+                    print(f'Updating job configuration for {full_job_name}')
+                    try:
+                        server.reconfig_job(full_job_name, config_xml)
+                    except JenkinsException as e:
+                        print(f'Failed updating job:\n{e}')
+
+
 def sync():
     parser = argparse.ArgumentParser(description='Create / sync family transformations.')
     parser.add_argument('--family', '-f', help='Datasets family to create/sync')
-    parser.add_argument('--github', '-g', help='Update/create GitHub issues related', action='store_true')
+    parser.add_argument('--github', '-g', help='Update/create related GitHub issues', action='store_true')
     parser.add_argument('--all', '-a', help='Include non-prioritized datasets.', action='store_true')
+    parser.add_argument('--jenkins', '-j', help='Update/create related Jenkins jobs', action='store_true')
     args = parser.parse_args()
 
     if 'AIRTABLE_API_KEY' in os.environ:
@@ -127,6 +171,12 @@ or put the token in the file {AIRTABLE_TOKEN_FILE}""")
             github_token = tf.readline().rstrip('\n')
     else:
         github_token = None
+
+    if JENKINS_TOKEN_FILE.exists():
+        with open(JENKINS_TOKEN_FILE) as tf:
+            jenkins_creds = json.load(tf)
+    else:
+        jenkins_creds = None
 
     base = 'appb66460atpZjzMq'
 
@@ -222,6 +272,11 @@ or put the token in the file {AIRTABLE_TOKEN_FILE}""")
                     pipelines.append(dataset_dir)
                     with open(dataset_info_path, 'w') as info_file:
                         json.dump(dataset_info, info_file, indent=4)
+
+                if (prioritized or args.all) and 'jenkins' in main_info and 'base' in main_info['jenkins'] \
+                        and 'path' in main_info['jenkins']:
+                    update_jenkins(main_info['jenkins']['base'], main_info['jenkins']['path'], jenkins_creds,
+                                   dataset_dir, args.jenkins, main_info.get('github', None))
 
     main_info['pipelines'] = sorted(set(pipelines))
     with open(main_info_file, 'w') as info_file:
