@@ -14,13 +14,41 @@ if (dataset) {
         const template = Handlebars.compile(source);
         $.getJSON('info.json', function(mainInfo) {
             $.getJSON(dataset + "/info.json", function (info) {
-                $("#body").html(template({
-                    "dataset_path": dataset,
-                    "main": mainInfo,
-                    "dataset": info,
-                    "jenkins_path": mainInfo.jenkins.path.map(function(p) {return 'job/' + p;}).join('/'),
-                    "jenkins_buildicon": 'buildStatus/icon?job=' + encodeURIComponent(mainInfo.jenkins.path.join('/') + '/')
-                }));
+                var fetchDatasets;
+                if (mainInfo.hasOwnProperty('pmd')) {
+                    fetchDatasets = $.post({
+                        url: mainInfo.pmd + '/sparql',
+                        data: {
+                            "query": `PREFIX dcat: <http://www.w3.org/ns/dcat#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+SELECT DISTINCT ?ds ?label WHERE { ?ds dcat:landingPage <${info.landingPage}>; rdfs:label ?label }`
+                        },
+                        dataType: 'json',
+                        headers: {"Accept": "application/sparql-results+json"}
+                    }).then(function(results) {
+                        return results.results.bindings.map(binding => {
+                                return {
+                                    uri: binding.ds.value,
+                                    label: binding.label.value
+                                };
+                            });
+                    });
+                } else {
+                    fetchDatasets = $.Deferred();
+                    fetchDatasets.resolve([]);
+                }
+                fetchDatasets.done(function(datasets) {
+                    $("#body").html(template({
+                        "dataset_path": dataset,
+                        "main": mainInfo,
+                        "dataset": info,
+                        "jenkins_path": mainInfo.jenkins.path.map(function (p) {
+                            return 'job/' + p;
+                        }).join('/'),
+                        "jenkins_buildicon": 'buildStatus/icon?job=' + encodeURIComponent(mainInfo.jenkins.path.join('/') + '/'),
+                        "datasets": datasets
+                    }));
+                });
                 document.title = info.title;
             });
         });

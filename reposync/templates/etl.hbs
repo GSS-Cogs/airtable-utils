@@ -108,6 +108,16 @@
     {{/if}}
   </div>
   <div class="col border-bottom border-right p-2">
+  {{#if datasets.length}}
+      <span class="font-weight-bold">PMD:</span>
+      <div>
+      <ul class="fa-ul">
+      {{#each datasets}}
+        <li><span class="fa-li"><i class="fas fa-cube"></i></span><a href={{this.uri}}>{{this.label}}</a>{{#unless @last}}, {{/unless}}</li>
+      {{/each}}
+      </ul>
+      </div>
+  {{/if}}
   </div>
 </div>
 <div class="row">
