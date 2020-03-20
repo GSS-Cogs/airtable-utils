@@ -15,9 +15,9 @@ if (dataset) {
         $.getJSON('info.json', function(mainInfo) {
             $.getJSON(dataset + "/info.json", function (info) {
                 var fetchDatasets;
-                if (mainInfo.hasOwnProperty('pmd')) {
+                if (mainInfo.hasOwnProperty('sparql')) {
                     fetchDatasets = $.post({
-                        url: mainInfo.pmd + '/sparql',
+                        url: mainInfo.sparql,
                         data: {
                             "query": `PREFIX dcat: <http://www.w3.org/ns/dcat#>
 PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
