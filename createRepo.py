@@ -1,11 +1,16 @@
 #!/usr/bin/env python3
 
+# +
 import sys
 import createRepoUtils as ut
 from gssutils import *
 import airTableData as at
 import getpass
 import datetime
+
+import os
+from cryptography.fernet import Fernet
+# -
 
 family = sys.argv[1].replace(',', '')
 user = getpass.getuser()
@@ -72,7 +77,7 @@ try:
                         nme1 = i['fields']['Name']
                         stg = i['fields']['Stage']
                         # Only do stuff if the ETL is Prioritised
-                        if stg == 'Prioritized':
+                        if 1 == 1: #stg == 'Prioritized':
                             print(nme1 + ' is prioritised, initialising variables')
                             try:
                                 pdr = ut.getProducer(i['fields']['Producer'], prdDat)

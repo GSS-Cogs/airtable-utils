@@ -2,10 +2,7 @@
 
 from airtable import Airtable
 from airtable import airtable
-import pandas as pd
-import numpy as np
 import os
-from cryptography.fernet import Fernet
 
 
 # All Tables are from Base COGS Dataset ETL Records
@@ -19,44 +16,26 @@ tpeTblNme = 'Type'
 pmdTblNme = 'PMD Dataset'
 
 
-def decrypt(token: bytes, key: bytes) -> bytes:
-    return Fernet(key).decrypt(token)
-
-
-def getLoginDetails():
-    # Pull in the encrypted keys from a text file to access AirTable bases
-    i = 0
-    try:
-        with open('AirTableEncrypt.txt', "r") as input:
-            for line in input:
-                if i == 0:
-                    key1 = line.strip().strip("\n")
-                elif i == 1:
-                    key2 = line.strip().strip("\n")
-                i = i + 1
-
-            input.close()
-            return [key1, key2]
-    except Exception as e:
-        return ['fail', str(e)]
+def getLoginDetails()
+    if 'AIRTABLE_API_KEY' in os.environ:
+        key = os.environ['AIRTABLE_API_KEY']
+    else:
+        key = 'Failed to find an Airtable key!'
+    #print('Environment Key: ' + key)
+    return key
 
 
 def getAirTableETLRecords():
     try:
-        keys = getLoginDetails()
-        key = str(keys[0])
-        encryptedKey = str(keys[1])
-
+        key = getLoginDetails()
         # Get all the information from AirTable - USE YOUR OWN API KEY HERE
         ########################################################################################################
-        srcAirTbl = Airtable(baseKey, srcTblNme, api_key=str(decrypt(encryptedKey.encode(), key).decode()))
-        famAirTbl = Airtable(baseKey, famTblNme, api_key=str(decrypt(encryptedKey.encode(), key).decode()))
-        prdAirTbl = Airtable(baseKey, prdTblNme, api_key=str(decrypt(encryptedKey.encode(), key).decode()))
-        tpeAirTbl = Airtable(baseKey, tpeTblNme, api_key=str(decrypt(encryptedKey.encode(), key).decode()))
-        pmdAirTbl = Airtable(baseKey, pmdTblNme, api_key=str(decrypt(encryptedKey.encode(), key).decode()))
+        srcAirTbl = Airtable(baseKey, srcTblNme, api_key=key)
+        famAirTbl = Airtable(baseKey, famTblNme, api_key=key)
+        prdAirTbl = Airtable(baseKey, prdTblNme, api_key=key)
+        tpeAirTbl = Airtable(baseKey, tpeTblNme, api_key=key)
+        pmdAirTbl = Airtable(baseKey, pmdTblNme, api_key=key)
         ########################################################################################################
-
-        # -------------------------------------------------------------------------------------------------------------
 
         # Get all the table data from Airtable
         srcDat = srcAirTbl.get_all()
@@ -82,13 +61,9 @@ def updateAirTable(key1, val1, key2, val2, tblNme, pDir, recId):
         currDir = os.getcwd()
         os.chdir(pDir)
         # Get the AirTable log in details
-        keys = getLoginDetails()
-        key = str(keys[0])
-        encryptedKey = str(keys[1])
+        key = getLoginDetails()
         # Get an instance of the table you want to update
-        arTbl = Airtable(baseKey, tblNme, api_key=str(decrypt(encryptedKey.encode(), key).decode()))
-        # Retrieve the Record ID of the record you want to update
-        #rec = Airtable.match(arTbl, key1, val1)
+        arTbl = Airtable(baseKey, tblNme, api_key=key)
         # Turn the Key and new Value into a Dictionary
         dicDat = {key2: val2}
         # Update AirTable with the new details using the Table name and record ID
@@ -98,4 +73,19 @@ def updateAirTable(key1, val1, key2, val2, tblNme, pDir, recId):
     except Exception as e:
         os.chdir(currDir)
         return 'Update Failed: ' + str(e)
+
+
+i = 0
+with open('AirTableEncrypt.txt', "r") as input:
+    for line in input:
+        if i == 0:
+            key1 = line.strip().strip("\n")
+        elif i == 1:
+            key2 = line.strip().strip("\n")
+        i = i + 1
+
+    input.close()
+print(decrypt(key2.encode(), key1))
+print(key2)
+
 
