@@ -115,6 +115,12 @@ if (dataset) {
                 fetchDatasets.done(function(datasets) {
                     collected = collected.map(p => {
                         p.datasets = datasets.filter(ds => ds.landingPage == p.info.landingPage);
+                        if (info.hasOwnProperty('pmd')) {
+                            p.datasets = p.datasets.map(ds => {
+                                ds.uri = info.pmd + '/resource?uri=' + encodeURIComponent(ds.uri);
+                                return ds;
+                            });
+                        };
                         return p;
                     });
                     $("#body").html(template({
