@@ -17,7 +17,7 @@ API tokens are needed for interaction with Airtable, GitHub and Jenkins. These
 are stored in files in the user's home directory under `~/.config/reposync/`.
 If the directory doesn't exist:
 ```
-mkdir ~/.config/reposync
+mkdir -p ~/.config/reposync
 ```
 
 ### Airable API Token
