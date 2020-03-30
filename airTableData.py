@@ -16,7 +16,7 @@ tpeTblNme = 'Type'
 pmdTblNme = 'PMD Dataset'
 
 
-def getLoginDetails()
+def getLoginDetails():
     if 'AIRTABLE_API_KEY' in os.environ:
         key = os.environ['AIRTABLE_API_KEY']
     else:
@@ -76,16 +76,16 @@ def updateAirTable(key1, val1, key2, val2, tblNme, pDir, recId):
 
 
 i = 0
-with open('AirTableEncrypt.txt', "r") as input:
-    for line in input:
-        if i == 0:
-            key1 = line.strip().strip("\n")
-        elif i == 1:
-            key2 = line.strip().strip("\n")
-        i = i + 1
+#with open('AirTableEncrypt.txt', "r") as input:
+#    for line in input:
+#        if i == 0:
+#            key1 = line.strip().strip("\n")
+##        elif i == 1:
+#            key2 = line.strip().strip("\n")
+#        i = i + 1##
 
-    input.close()
-print(decrypt(key2.encode(), key1))
-print(key2)
+#    input.close()
+#print(decrypt(key2.encode(), key1))
+#print(key2)
 
 
