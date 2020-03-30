@@ -63,7 +63,7 @@ def update_info(info, source, producers, families, types, source_ids):
 GITHUB_BASE = 'https://github.com/'
 
 
-def update_github(issue_no, title, source, github_token, repo_url, writeback):
+def update_github(issue_no, title, source, github_token, repo_url, writeback, rec_id):
     if not repo_url.startswith(GITHUB_BASE):
         print(f'Github repo URL not recognised {repo_url}.')
         return
@@ -84,6 +84,7 @@ def update_github(issue_no, title, source, github_token, repo_url, writeback):
                 print(f"Need to create new GitHub issue for {title}")
                 if writeback:
                     issue = repo.create_issue(title)
+                    update_airtable_issue_number(issue.number, rec_id)
         else:
             issue = repo.get_issue(number=issue_no)
         if issue is None:
@@ -147,6 +148,16 @@ def update_jenkins(base, path, creds, name, writeback, github_home):
                         server.reconfig_job(full_job_name, config_xml)
                     except JenkinsException as e:
                         print(f'Failed updating job:\n{e}')
+
+
+def update_airtable_issue_number(issue_number, rec_id):
+    airtable_token = os.environ['AIRTABLE_API_KEY']
+    base_key = 'appb66460atpZjzMq'
+    air_tbl = Airtable(base_key, 'Source Data', api_key=airtable_token)
+    # Turn the Key and new Value into a Dictionary
+    dic_dat = {'GitHub Issue Number': issue_number}
+    # Update AirTable with the new details using the Table name and record ID
+    Airtable.update(air_tbl, rec_id, dic_dat)
 
 
 def sync():
@@ -262,7 +273,8 @@ or put the token in the file {AIRTABLE_TOKEN_FILE}""")
                 update_info(dataset_info, source, producers, families, types, dataset_path_source[dataset_dir])
                 if 'github' in main_info:
                     issue_number = update_github(dataset_info.get('transform', {}).get('main_issue', None),
-                                                 dataset_dir, source, github_token, main_info['github'], args.github)
+                                                 dataset_dir, source, github_token, main_info['github'], args.github,
+                                                 source_id)
                     if issue_number is not None:
                         if 'transform' not in dataset_info:
                             dataset_info['transform'] = {}
