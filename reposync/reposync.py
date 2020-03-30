@@ -151,7 +151,11 @@ def update_jenkins(base, path, creds, name, writeback, github_home):
 
 
 def update_airtable_issue_number(issue_number, rec_id):
-    airtable_token = os.environ['AIRTABLE_API_KEY']
+    if 'AIRTABLE_API_KEY' in os.environ:
+        airtable_token = os.environ['AIRTABLE_API_KEY']
+    elif AIRTABLE_TOKEN_FILE.exists():
+        with open(AIRTABLE_TOKEN_FILE) as tf:
+            airtable_token = tf.readline().rstrip('\n')
     base_key = 'appb66460atpZjzMq'
     air_tbl = Airtable(base_key, 'Source Data', api_key=airtable_token)
     # Turn the Key and new Value into a Dictionary
