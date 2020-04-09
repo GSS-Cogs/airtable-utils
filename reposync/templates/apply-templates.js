@@ -46,7 +46,7 @@ if (dataset) {
         const template = Handlebars.compile(source);
         $.getJSON('info.json', function(mainInfo) {
             $.getJSON(dataset + "/info.json", function (info) {
-                let fetchDatasets;
+                let fetchDatasets, lastPublished=null;
                 if (mainInfo.hasOwnProperty('sparql')) {
                     fetchDatasets = datasetFetcher(mainInfo.sparql, [info.landingPage]);
                 } else {

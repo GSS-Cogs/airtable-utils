@@ -22,9 +22,7 @@
             <td>{{info.extract.stage}}</td>
             <td>
                 {{#if info.transform.main_issue}}
-                    <a href="{{../github}}/issues/{{info.transform.main_issue}}"><i style="color: black;"
-                                                                                    class="fab fa-github-alt"></i>
-                        #{{info.transform.main_issue}}</a>
+                    <a href="{{../github}}/issues/{{info.transform.main_issue}}"><img alt="GitHub issue detail" src="https://img.shields.io/github/issues/detail/state/GSS-Cogs/family-trade/{{info.transform.main_issue}}?style=plastic"></a>
                 {{/if}}
             </td>
             <td>
