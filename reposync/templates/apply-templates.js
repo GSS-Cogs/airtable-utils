@@ -116,14 +116,22 @@ if (dataset) {
                 });
                 let fetchDatasets;
                 if (info.hasOwnProperty('sparql')) {
-                    fetchDatasets = datasetFetcher(info.sparql, collected.map(p => p.info.landingPage));
+                    fetchDatasets = datasetFetcher(info.sparql, collected.flatMap(p => p.info.landingPage));
                 } else {
                     fetchDatasets = $.Deferred();
                     fetchDatasets.resolve([]);
                 }
                 fetchDatasets.done(function(datasets) {
                     collected = collected.map(p => {
-                        p.datasets = datasets.filter(ds => ds.landingPage == p.info.landingPage);
+                        p.datasets = datasets.filter(ds => {
+                            if (typeof(p.info.landingPage) == 'string') {
+                                return ds.landingPage === p.info.landingPage
+                            } else {
+                                return p.info.landingPage.includes(ds.landingPage)
+                            }
+                        }).filter(function(ds, i, s) {
+                            return s.findIndex(d => d.uri === ds.uri) === i
+                        });
                         let lastModified = p.datasets
                             .map(a => a.modified)
                             .reduce(function(a, b) {
