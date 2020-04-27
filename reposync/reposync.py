@@ -39,7 +39,17 @@ def update_info(info, source, producers, families, types, source_ids):
     info['title'] = source.get('Name', '').strip()
     info['publisher'] = producers[source['Producer'][0]]['Full Name'].strip()
     info['description'] = source.get('Description', '').strip()
-    info['landingPage'] = source.get('Landing Page', '').strip()
+    if 'landingPage' in info:
+        pages = set()
+        if type(info['landingPage']) == str:
+            pages.add(info['landingPage'])
+        else:
+            pages.update(info['landingPage'])
+        pages.add(source.get('Landing Page', '').strip())
+        if len(pages) == 1:
+            info['landingPage'] = pages.pop()
+        else:
+            info['landingPage'] = list(pages)
     if 'Route from landing page to data' in source:
         info['datasetNotes'] = source['Route from landing page to data'].splitlines()
     # Todo: contact info
@@ -118,7 +128,6 @@ def update_jenkins(base, path, creds, name, writeback, github_home):
     full_job_name = '/'.join(path) + '/' + name
     if server.job_exists(full_job_name):
         job = server.get_job_info(full_job_name)
-        print(f'Found Jenkins job for {full_job_name}')
     else:
         print(f'Jenkins job {full_job_name} doesn''t exist.')
         job = None
@@ -138,10 +147,10 @@ def update_jenkins(base, path, creds, name, writeback, github_home):
     elif job is not None:
         current_xml = canonicalize(server.get_job_config(full_job_name))
         if current_xml != config_xml:
-            print(f'Jenkins job {full_job_name} needs update:')
-            stderr.writelines(Differ().compare(current_xml.splitlines(keepends=True),
-                                               config_xml.splitlines(keepends=True)))
+            print(f'Jenkins job {full_job_name} needs update')
             if writeback:
+                stderr.writelines(Differ().compare(current_xml.splitlines(keepends=True),
+                                                   config_xml.splitlines(keepends=True)))
                 if input(f'Are you sure you want to update configuration for {full_job_name} (y/n) ? ') == 'y':
                     print(f'Updating job configuration for {full_job_name}')
                     try:
