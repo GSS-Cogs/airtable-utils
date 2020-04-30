@@ -49,7 +49,9 @@ def update_info(info, source, producers, families, types, source_ids):
         if len(pages) == 1:
             info['landingPage'] = pages.pop()
         else:
-            info['landingPage'] = list(pages)
+            info['landingPage'] = sorted(pages)
+    elif 'Landing Page' in source and source.get('Landing Page') != '':
+        info['landingPage'] = source.get('Landing Page')
     if 'Route from landing page to data' in source:
         info['datasetNotes'] = source['Route from landing page to data'].splitlines()
     # Todo: contact info
