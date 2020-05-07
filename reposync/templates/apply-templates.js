@@ -75,6 +75,7 @@ if (dataset) {
                         }).join('/'),
                         "jenkins_buildicon": 'buildStatus/icon?job=' + encodeURIComponent(mainInfo.jenkins.path.join('/') + '/'),
                         "datasets": datasets,
+                        "issue_badge_base": `https://img.shields.io/github/issues/detail/state${(new URL(mainInfo.github)).pathname}`
                     }));
                 });
                 document.title = info.title;
@@ -162,7 +163,8 @@ if (dataset) {
                             return 'job/' + p;
                         }).join('/'),
                         "jenkins_buildicon": 'buildStatus/icon?job=' + encodeURIComponent(info.jenkins.path.join('/') + '/'),
-                        "pipelines": collected
+                        "pipelines": collected,
+                        "issue_badge_base": `https://img.shields.io/github/issues/detail/state${(new URL(info.github)).pathname}`
                     }));
                 });
             });

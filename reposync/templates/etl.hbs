@@ -95,7 +95,7 @@
     {{#if dataset.transform.main_issue}}
     <div>
         <span class="font-weight-bold">Tracking:</span>
-        <span><a href="{{main.github}}/issues/{{dataset.transform.main_issue}}"><img alt="GitHub issue detail" src="https://img.shields.io/github/issues/detail/state/GSS-Cogs/family-trade/{{dataset.transform.main_issue}}?style=plastic"></a></span>
+        <span><a href="{{main.github}}/issues/{{dataset.transform.main_issue}}"><img alt="GitHub issue detail" src="{{issue_badge_base}}/{{dataset.transform.main_issue}}?style=plastic"></a></span>
     </div>
     {{/if}}
     {{#if main.jenkins}}
