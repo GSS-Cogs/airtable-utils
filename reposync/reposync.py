@@ -35,11 +35,11 @@ def pathify(label):
                          re.sub(r'[^\w/]', '-', label)))
 
 
-def update_info(info, source, producers, families, types, source_ids):
+def update_info(info, source, producers, families, types, source_ids, touched):
     info['title'] = source.get('Name', '').strip()
     info['publisher'] = producers[source['Producer'][0]]['Full Name'].strip()
     info['description'] = source.get('Description', '').strip()
-    if 'landingPage' in info:
+    if 'landingPage' in info and touched:
         pages = set()
         if type(info['landingPage']) == str:
             pages.add(info['landingPage'])
@@ -262,6 +262,7 @@ or put the token in the file {AIRTABLE_TOKEN_FILE}""")
 
     pipelines = []
     dataset_path_source = defaultdict(list)
+    touched_info = set()
     for source_id, source in sources.items():
         if ('Family' in source and family_id in source['Family']) or (source_id in source_dataset_path):
             if 'Producer' in source and len(source['Producer']) == 1:
@@ -285,7 +286,8 @@ or put the token in the file {AIRTABLE_TOKEN_FILE}""")
                 else:
                     dataset_info = {}
                 dataset_path_source[dataset_dir].append(source_id)
-                update_info(dataset_info, source, producers, families, types, dataset_path_source[dataset_dir])
+                update_info(dataset_info, source, producers, families, types,
+                            dataset_path_source[dataset_dir], dataset_info_path in touched_info)
                 if 'github' in main_info:
                     issue_number = update_github(dataset_info.get('transform', {}).get('main_issue', None),
                                                  dataset_dir, source, github_token, main_info['github'], args.github,
@@ -299,6 +301,7 @@ or put the token in the file {AIRTABLE_TOKEN_FILE}""")
                     pipelines.append(dataset_dir)
                     with open(dataset_info_path, 'w') as info_file:
                         json.dump(dataset_info, info_file, indent=4)
+                        touched_info.add(dataset_info_path)
 
                 if (prioritized or args.all) and 'jenkins' in main_info and 'base' in main_info['jenkins'] \
                         and 'path' in main_info['jenkins']:
