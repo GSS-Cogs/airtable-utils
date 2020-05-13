@@ -151,7 +151,8 @@ if (dataset) {
                             });
                         };
                         if (lastModified !== null) {
-                            p.lastModified = lastModified.toDateString();
+                          p.lastModified = lastModified.toDateString();
+                          p.lastModifiedMillis = lastModified.valueOf();
                         }
                         return p;
                     });
@@ -166,6 +167,9 @@ if (dataset) {
                         "pipelines": collected,
                         "issue_badge_base": `https://img.shields.io/github/issues/detail/state${(new URL(info.github)).pathname}`
                     }));
+                  $(document).ready( function () {
+                    $('#datasets_table').DataTable();
+                  } );
                 });
             });
         });
