@@ -37,7 +37,11 @@ def pathify(label):
 
 def update_info(info, source, producers, families, types, source_ids, touched):
     info['title'] = source.get('Name', '').strip()
-    info['publisher'] = producers[source['Producer'][0]]['Full Name'].strip()
+    producer = producers[source['Producer'][0]]
+    if 'Full Name' in producer and producer['Full Name'].strip() != '':
+        info['publisher'] = producer['Full Name'].strip()
+    else:
+        info['publisher'] = producer['Name'].strip()
     info['description'] = source.get('Description', '').strip()
     if 'landingPage' in info and touched:
         pages = set()

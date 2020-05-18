@@ -167,9 +167,9 @@ if (dataset) {
                         "pipelines": collected,
                         "issue_badge_base": `https://img.shields.io/github/issues/detail/state${(new URL(info.github)).pathname}`
                     }));
-                  $(document).ready( function () {
-                    $('#datasets_table').DataTable();
-                  } );
+                  $('#datasets_table').DataTable({
+                    "paging": false
+                  });
                 });
             });
         });
