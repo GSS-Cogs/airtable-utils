@@ -64,10 +64,12 @@ def update_info(info, source, producers, families, types, source_ids, touched):
     if 'extract' not in info:
         info['extract'] = {}
     info['extract']['source'] = ', '.join(types[ref]['Name'] for ref in source.get('Data type', []))
-    if 'Stage' in source:
-        info['extract']['stage'] = source['Stage']
+    if 'BA Stage' in source:
+        info['extract']['stage'] = source['BA Stage']
     if 'transform' not in info:
         info['transform'] = {}
+    if 'Tech Stage' in source:
+        info['transform']['stage'] = source['Tech Stage']
     if len(source_ids) == 1:
         info['transform']['airtable'] = source_ids[0]
     else:
@@ -79,7 +81,7 @@ def update_info(info, source, producers, families, types, source_ids, touched):
 GITHUB_BASE = 'https://github.com/'
 
 
-def update_github(issue_no, title, source, github_token, repo_url, writeback, rec_id):
+def update_github(issue_no, title, source, github_token, repo_url, writeback, rec_id, used_labels):
     if not repo_url.startswith(GITHUB_BASE):
         print(f'Github repo URL not recognised {repo_url}.')
         return
@@ -106,19 +108,23 @@ def update_github(issue_no, title, source, github_token, repo_url, writeback, re
         if issue is None:
             print(f'No GitHub issue for {title}')
             return None
-        ba_labels = [label for label in issue.get_labels() if label.name.startswith('BA')]
-        if 'Stage' in source:
-            source_label = f'BA {source["Stage"]}'
-            if len(ba_labels) != 1 or ba_labels[0].name != source_label:
-                for label in ba_labels:
-                    print(f'Need to removing label "{label.name}" from issue {issue_no}')
-                    if writeback:
-                        issue.remove_from_labels(label)
-                        print('Removed.')
-                print(f'Need to add label "{source_label}" for issue {issue_no}')
+        airtable_labels = set([label.name for label in issue.get_labels() if label.name.startswith('BA') or (label.name in used_labels)])
+        if 'Tech Stage' in source:
+            stage_labels = set(source['Tech Stage'])
+            to_remove = airtable_labels - stage_labels
+            to_add = stage_labels - airtable_labels
+            if len(to_remove) > 0:
+                print(f'Need to remove "{", ".join(to_remove)}" from issue {issue_no}')
                 if writeback:
-                    issue.add_to_labels(source_label)
-                    print('Added.')
+                    for label in to_remove:
+                        issue.remove_from_labels(label)
+                        print(f'Removed "{label}".')
+            if len(to_add) > 0:
+                print(f'Need to add "{", ".join(to_add)}" for issue {issue_no}')
+                if writeback:
+                    for label in to_add:
+                        issue.add_to_labels(label)
+                        print(f'Added "{label}".')
         return issue.number
 
 
@@ -183,7 +189,6 @@ def sync():
     parser = argparse.ArgumentParser(description='Create / sync family transformations.')
     parser.add_argument('--family', '-f', help='Datasets family to create/sync')
     parser.add_argument('--github', '-g', help='Update/create related GitHub issues', action='store_true')
-    parser.add_argument('--all', '-a', help='Include non-prioritized datasets.', action='store_true')
     parser.add_argument('--jenkins', '-j', help='Update/create related Jenkins jobs', action='store_true')
     args = parser.parse_args()
 
@@ -214,6 +219,7 @@ or put the token in the file {AIRTABLE_TOKEN_FILE}""")
     families = { record['id']: record['fields'] for record in Airtable(base, 'Family', api_key=airtable_token).get_all() }
     producers = { record['id']: record['fields'] for record in Airtable(base, 'Dataset Producer', api_key=airtable_token).get_all() }
     types = { record['id']: record['fields'] for record in Airtable(base, 'Type', api_key=airtable_token).get_all() }
+    tech_stages = set([stage for source in sources.values() for stage in source.get('Tech Stage', [])])
 
     datasets_path = Path('datasets')
     datasets_path.mkdir(exist_ok=True)
@@ -278,8 +284,7 @@ or put the token in the file {AIRTABLE_TOKEN_FILE}""")
                 else:
                     print(f'No existing dataset directory for source, and source has no name, so ignoring:\n{source}')
                     continue
-                prioritized = 'Stage' in source and source['Stage'] == 'Prioritized'
-                if not (datasets_path / dataset_dir).exists() and (prioritized or args.all):
+                if not (datasets_path / dataset_dir).exists():
                     (datasets_path / dataset_dir).mkdir(parents=True)
                 dataset_info_path = datasets_path / dataset_dir / 'info.json'
                 sync_info = False
@@ -295,19 +300,19 @@ or put the token in the file {AIRTABLE_TOKEN_FILE}""")
                 if 'github' in main_info:
                     issue_number = update_github(dataset_info.get('transform', {}).get('main_issue', None),
                                                  dataset_dir, source, github_token, main_info['github'], args.github,
-                                                 source_id)
+                                                 source_id, tech_stages)
                     if issue_number is not None:
                         if 'transform' not in dataset_info:
                             dataset_info['transform'] = {}
                         dataset_info['transform']['main_issue'] = issue_number
 
-                if sync_info or prioritized or args.all:
+                if sync_info:
                     pipelines.append(dataset_dir)
                     with open(dataset_info_path, 'w') as info_file:
                         json.dump(dataset_info, info_file, indent=4)
                         touched_info.add(dataset_info_path)
 
-                if (prioritized or args.all) and 'jenkins' in main_info and 'base' in main_info['jenkins'] \
+                if 'jenkins' in main_info and 'base' in main_info['jenkins'] \
                         and 'path' in main_info['jenkins']:
                     update_jenkins(main_info['jenkins']['base'], main_info['jenkins']['path'], jenkins_creds,
                                    dataset_dir, args.jenkins, main_info.get('github', None))
