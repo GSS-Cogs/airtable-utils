@@ -1,5 +1,8 @@
 <h1>{{family}} Dataset Family</h1>
 
+<button id="toggle_all" type="button" class="btn btn-outline-primary" aria-pressed="false" autocomplete="off">
+  Toggle All
+</button>
 <table id="datasets_table" class="table table-striped table-bordered">
     <thead>
     <tr>
@@ -7,6 +10,7 @@
         <th>Publisher</th>
         <th>Dataset</th>
         <th>Extract Stage</th>
+        <th>Transform Stage</th>
         <th>Tracking</th>
         <th>Transform Status</th>
         <th>Publish Status</th>
@@ -20,6 +24,7 @@
             <td>{{info.publisher}}</td>
             <td><a href="?{{directory}}">{{info.title}}</a></td>
             <td>{{info.extract.stage}}</td>
+            <td>{{info.transform.stage}}</td>
             <td>
                 {{#if info.transform.main_issue}}
                     <a href="{{../github}}/issues/{{info.transform.main_issue}}"><img alt="GitHub issue detail" src="{{../issue_badge_base}}/{{info.transform.main_issue}}?style=plastic"></a>
