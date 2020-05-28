@@ -169,17 +169,19 @@ if (dataset) {
                     }));
                     $.fn.dataTable.ext.search.push(
                         function( settings, data, dataIndex ) {
-                            var all = $('#toggle_all').hasClass('active');
+                            const all = $('#toggle_all').hasClass('active');
                             if (all) return true;
-                            var stages = data[4].split(',').map(s => s.trim().toUpperCase());
-                            if ((stages.length == 1) && (stages[0] == '')) {
-                                stages = [];
+                            let tech_stages = data[4].split(',').map(s => s.trim().toUpperCase());
+                            if ((tech_stages.length === 1) && (tech_stages[0] === '')) {
+                                tech_stages = [];
                             }
-                            if ((stages.length == 0) || (stages.indexOf('HOLD') >= 0)) {
-                                return false;
-                            } else {
-                                return true;
+                            let ba_stages = data[3].split(',').map(s => s.trim().toUpperCase());
+                            if ((ba_stages.length === 1) && (ba_stages[0] === '')) {
+                                ba_stages = [];
                             }
+                            return !((ba_stages.length === 0) || (tech_stages.indexOf('HOLD') >= 0) ||
+                                (ba_stages.indexOf('NOT REQUIRED') >= 0) ||
+                                (ba_stages.indexOf('CANDIDATE') >= 0));
                         }
                     );
                     let table = $('#datasets_table').DataTable({

@@ -220,6 +220,7 @@ or put the token in the file {AIRTABLE_TOKEN_FILE}""")
     producers = { record['id']: record['fields'] for record in Airtable(base, 'Dataset Producer', api_key=airtable_token).get_all() }
     types = { record['id']: record['fields'] for record in Airtable(base, 'Type', api_key=airtable_token).get_all() }
     tech_stages = set([stage for source in sources.values() for stage in source.get('Tech Stage', [])])
+    ba_stages = set([stage for source in sources.values() for stage in source.get('BA Stage', [])])
 
     datasets_path = Path('datasets')
     datasets_path.mkdir(exist_ok=True)
