@@ -1,6 +1,15 @@
 const dataset = window.location.search.substring(1);
 
 function datasetFetcher(endpoint, landingPages) {
+    let filteredURLs = landingPages.filter(p => {
+        try {
+            new URL(p);
+            return true;
+        } catch (err) {
+            console.warn(`Invalid landing page URL "${p}"`);
+            return false;
+        }
+    });
     return $.post({
         url: endpoint,
         data: {
@@ -14,7 +23,7 @@ SELECT DISTINCT ?page ?ds ?label ?modified WHERE {
     ?ds dct:modified ?modified
   }
 } VALUES (?page) {
-${landingPages.map(x => `(<${x}>)`).join(' ')}
+${filteredURLs.map(x => `(<${(new URL(x)).href}>)`).join(' ')}
 }`
         },
         dataType: 'json',

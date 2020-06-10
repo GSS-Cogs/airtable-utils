@@ -26,13 +26,13 @@ GITHUB_TOKEN_FILE = REPOSYNC_CONFIG / 'github-token'
 JENKINS_TOKEN_FILE = REPOSYNC_CONFIG / 'jenkins-token'
 
 
-def pathify(label):
+def pathify(label, segments=False):
     """
       Convert a label into something that can be used in a URI path segment.
     """
     return re.sub(r'-$', '',
                   re.sub(r'-+', '-',
-                         re.sub(r'[^\w/]', '-', label)))
+                         re.sub(r'[^\w' + '/]' if segments else ']', '-', label)))
 
 
 def update_info(info, source, producers, families, types, source_ids, touched):
