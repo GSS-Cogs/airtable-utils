@@ -18,7 +18,10 @@ from github import Github, UnknownObjectException
 from airtable import Airtable
 from jenkins import Jenkins, JenkinsException
 
-from . import templates
+try:
+    from . import templates
+except:
+    import templates
 
 REPOSYNC_CONFIG = Path.home() / '.config' / 'reposync'
 AIRTABLE_TOKEN_FILE = REPOSYNC_CONFIG / 'airtable-token'
@@ -32,7 +35,7 @@ def pathify(label, segments=False):
     """
     return re.sub(r'-$', '',
                   re.sub(r'-+', '-',
-                         re.sub(r'[^\w' + '/]' if segments else ']', '-', label)))
+                         re.sub(r'[^\w' + ('/]' if segments else ']'), '-', label)))
 
 
 def update_info(info, source, producers, families, types, source_ids, touched):
@@ -108,7 +111,10 @@ def update_github(issue_no, title, source, github_token, repo_url, writeback, re
         if issue is None:
             print(f'No GitHub issue for {title}')
             return None
-        airtable_labels = set([label.name for label in issue.get_labels() if label.name.startswith('BA') or (label.name in used_labels)])
+        if issue_no is None:
+            issue_no = issue.number
+        airtable_labels = set(
+            [label.name for label in issue.get_labels() if label.name.startswith('BA') or (label.name in used_labels)])
         if 'Tech Stage' in source:
             stage_labels = set(source['Tech Stage'])
             to_remove = airtable_labels - stage_labels
@@ -131,6 +137,8 @@ def update_github(issue_no, title, source, github_token, repo_url, writeback, re
 def update_web_pages(root_dir):
     for resource in resources.contents(templates):
         if resource.endswith('.html') or resource.endswith('.js') or resource.endswith('.hbs'):
+            if resource == 'index.html' and (root_dir / resource).exists():
+                continue
             with resources.path(templates, resource) as file_path:
                 shutil.copy(file_path, root_dir / resource)
 
@@ -146,7 +154,7 @@ def update_jenkins(base, path, creds, name, writeback, github_home):
 
     job_template = Template(resources.read_text(templates, 'jenkins_job.xml'))
     config_xml = job_template.substitute(github_home=github_home,
-                                         git_clone_url=github_home+'.git',
+                                         git_clone_url=github_home + '.git',
                                          dataset_dir=name)
     config_xml = canonicalize(config_xml)
 
@@ -215,10 +223,12 @@ or put the token in the file {AIRTABLE_TOKEN_FILE}""")
 
     base = 'appb66460atpZjzMq'
 
-    sources = { record['id']: record['fields'] for record in Airtable(base, 'Source Data', api_key=airtable_token).get_all() }
-    families = { record['id']: record['fields'] for record in Airtable(base, 'Family', api_key=airtable_token).get_all() }
-    producers = { record['id']: record['fields'] for record in Airtable(base, 'Dataset Producer', api_key=airtable_token).get_all() }
-    types = { record['id']: record['fields'] for record in Airtable(base, 'Type', api_key=airtable_token).get_all() }
+    sources = {record['id']: record['fields'] for record in
+               Airtable(base, 'Source Data', api_key=airtable_token).get_all()}
+    families = {record['id']: record['fields'] for record in Airtable(base, 'Family', api_key=airtable_token).get_all()}
+    producers = {record['id']: record['fields'] for record in
+                 Airtable(base, 'Dataset Producer', api_key=airtable_token).get_all()}
+    types = {record['id']: record['fields'] for record in Airtable(base, 'Type', api_key=airtable_token).get_all()}
     tech_stages = set([stage for source in sources.values() for stage in source.get('Tech Stage', [])])
     ba_stages = set([stage for source in sources.values() for stage in source.get('BA Stage', [])])
 
@@ -269,7 +279,8 @@ or put the token in the file {AIRTABLE_TOKEN_FILE}""")
                         if recordId not in source_dataset_path:
                             source_dataset_path[recordId] = existing_pipeline.name
                         else:
-                            print(f'Warning: duplicate record ID {recordId} in {existing_pipeline.name} and {source_dataset_path[recordId]}')
+                            print(
+                                f'Warning: duplicate record ID {recordId} in {existing_pipeline.name} and {source_dataset_path[recordId]}')
 
     pipelines = []
     dataset_path_source = defaultdict(list)
@@ -277,7 +288,7 @@ or put the token in the file {AIRTABLE_TOKEN_FILE}""")
     for source_id, source in sources.items():
         if ('Family' in source and family_id in source['Family']) or (source_id in source_dataset_path):
             if 'Producer' in source and len(source['Producer']) == 1:
-                producer = producers[source['Producer'][0]]['Name']
+                producer = pathify(producers[source['Producer'][0]]['Name'])
                 if source_id in source_dataset_path:
                     dataset_dir = source_dataset_path[source_id]
                 elif 'Name' in source:
@@ -288,10 +299,8 @@ or put the token in the file {AIRTABLE_TOKEN_FILE}""")
                 if not (datasets_path / dataset_dir).exists():
                     (datasets_path / dataset_dir).mkdir(parents=True)
                 dataset_info_path = datasets_path / dataset_dir / 'info.json'
-                sync_info = False
                 if dataset_info_path.exists():
                     with open(dataset_info_path) as info_file:
-                        sync_info = True
                         dataset_info = json.load(info_file)
                 else:
                     dataset_info = {}
@@ -307,11 +316,10 @@ or put the token in the file {AIRTABLE_TOKEN_FILE}""")
                             dataset_info['transform'] = {}
                         dataset_info['transform']['main_issue'] = issue_number
 
-                if sync_info:
-                    pipelines.append(dataset_dir)
-                    with open(dataset_info_path, 'w') as info_file:
-                        json.dump(dataset_info, info_file, indent=4)
-                        touched_info.add(dataset_info_path)
+                pipelines.append(dataset_dir)
+                with open(dataset_info_path, 'w') as info_file:
+                    json.dump(dataset_info, info_file, indent=4)
+                    touched_info.add(dataset_info_path)
 
                 if 'jenkins' in main_info and 'base' in main_info['jenkins'] \
                         and 'path' in main_info['jenkins']:
