@@ -12,11 +12,17 @@ import re
 from importlib import resources
 from string import Template
 from sys import stderr
+from typing import Dict, Optional
+
 from lxml.etree import canonicalize
 
 from github import Github, UnknownObjectException
+from github.Issue import Issue
+from github.ProjectColumn import ProjectColumn
 from airtable import Airtable
 from jenkins import Jenkins, JenkinsException
+from progress.bar import Bar
+
 
 try:
     from . import templates
@@ -84,7 +90,22 @@ def update_info(info, source, producers, families, types, source_ids, touched):
 GITHUB_BASE = 'https://github.com/'
 
 
-def update_github(issue_no, title, source, github_token, repo_url, writeback, rec_id, used_labels):
+def get_project_board(github_token, repo_url):
+    if not repo_url.startswith(GITHUB_BASE):
+        print(f'Github repo URL not recognised {repo_url}.')
+        return None
+    g = Github(github_token)
+    try:
+        repo = g.get_repo(repo_url[len(GITHUB_BASE):])
+    except UnknownObjectException:
+        print(f'Unknown repo {repo_url[len(GITHUB_BASE):]}')
+        return
+    org = g.get_organization(repo.organization.login)
+    return next((project for project in org.get_projects() if project.name == 'Transformation Pipelines'), None)
+
+
+def update_github(issue_no, title, source, github_token, repo_url, writeback, rec_id, used_labels, issue_column,
+                  todo_column):
     if not repo_url.startswith(GITHUB_BASE):
         print(f'Github repo URL not recognised {repo_url}.')
         return
@@ -114,7 +135,7 @@ def update_github(issue_no, title, source, github_token, repo_url, writeback, re
         if issue_no is None:
             issue_no = issue.number
         airtable_labels = set(
-            [label.name for label in issue.get_labels() if label.name.startswith('BA') or (label.name in used_labels)])
+            [label.name for label in issue.get_labels() if label.name in used_labels])
         if 'Tech Stage' in source:
             stage_labels = set(source['Tech Stage'])
             to_remove = airtable_labels - stage_labels
@@ -131,6 +152,11 @@ def update_github(issue_no, title, source, github_token, repo_url, writeback, re
                     for label in to_add:
                         issue.add_to_labels(label)
                         print(f'Added "{label}".')
+            if issue_no not in issue_column and 'To Do' in stage_labels and issue.state == 'open':
+                print(f'Issue {issue_no} is not on project board and should be in To Do column.')
+                if writeback:
+                    card = todo_column.create_card(content_id=issue.id, content_type='Issue')
+                    card.move('top', todo_column)
         return issue.number
 
 
@@ -260,6 +286,19 @@ or put the token in the file {AIRTABLE_TOKEN_FILE}""")
         family_list = " - " + ",\n - ".join(family_names)
         parser.error(f"Family '{args.family}' doesn't exist, choose from:\n{family_list}")
 
+    issue_column: Dict[int, ProjectColumn] = {}
+    todo_column: Optional[ProjectColumn] = None
+    if 'github' in main_info and github_token is not None:
+        trans_board = get_project_board(github_token, main_info['github'])
+        if trans_board is not None:
+            for column in Bar('Fetching board issues').iter(list(trans_board.get_columns())):
+                if column.name.lower() == 'to do':
+                    todo_column = column
+                card_contents = [card.get_content() for card in column.get_cards()]
+                for issue in card_contents:
+                    if isinstance(issue, Issue) and main_info['github'].endswith(issue.repository.full_name):
+                        issue_column[issue.number] = column
+
     source_dataset_path = {}
     for existing_pipeline in datasets_path.iterdir():
         if existing_pipeline.is_dir():
@@ -310,7 +349,7 @@ or put the token in the file {AIRTABLE_TOKEN_FILE}""")
                 if 'github' in main_info:
                     issue_number = update_github(dataset_info.get('transform', {}).get('main_issue', None),
                                                  dataset_dir, source, github_token, main_info['github'], args.github,
-                                                 source_id, tech_stages)
+                                                 source_id, tech_stages, issue_column, todo_column)
                     if issue_number is not None:
                         if 'transform' not in dataset_info:
                             dataset_info['transform'] = {}
