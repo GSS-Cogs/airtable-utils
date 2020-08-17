@@ -60,7 +60,11 @@ permissions are enabled:
 * repo / public_repo
 * user / read:user
 
+then add it to the .config folder via:
 
+```
+echo 'long-alphanumeric-key' > ~/.config/reposync/github-token
+```
 
 #####################################################
 
