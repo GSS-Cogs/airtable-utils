@@ -158,7 +158,7 @@ if (dataset) {
                     .then(function(dsinfo) {
                         let spec_url = info.jenkins.base + '/' + info.jenkins.path.map(function (p) {
                             return 'job/' + p;
-                        }).join('/') + dataset + '/lastBuild/artifact/datasets/' + dataset + '/out/spec.json';
+                        }).join('/') + pipeline + '/lastBuild/artifact/datasets/' + pipeline + '/out/spec.json';
                         return $.ajax({url: spec_url, method: 'HEAD'})
                             .then(function () {
                                 dsinfo.jenkinsSpec = '?spec=' + pipeline;
