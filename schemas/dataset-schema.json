@@ -1,0 +1,147 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "http://gss-cogs.github.io/family-covid-19/dataset-schema.json",
+  "title": "Dataset",
+  "description": "Info about a dataset / transformation",
+  "type": "object",
+  "properties": {
+    "title": {
+      "description": "The dataset title",
+      "type": "string"
+    },
+    "publisher": {
+      "description": "The dataset publisher",
+      "type": "string"
+    },
+    "description": {
+      "description": "The dataset description",
+      "type": "string"
+    },
+    "landingPage": {
+      "description": "The initial URL(s) the scraper starts from",
+      "oneOf": [
+        {
+          "type": "string",
+          "format": "uri"
+        },
+        {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "uri"
+          }
+        }
+      ]
+    },
+    "dataURL": {
+      "description": "Provide a temporary direct download URL when there's no scraper available",
+      "type": "string",
+      "format": "uri"
+    },
+    "datasetNotes": {
+      "description": "Notes about how to find the data from the landing page and what to do with it",
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "published": {
+      "description": "Date that the dataset was published",
+      "type": "string"
+    },
+    "families": {
+      "description": "Dataset families this dataset belongs to",
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "extract": {
+      "description": "Information about the extraction part of the process.",
+      "type": "object",
+      "properties": {
+        "source": {
+          "description": "Format of the source data",
+          "type": "string"
+        },
+        "stage": {
+          "description": "The analysis stage of this dataset within the dataset family landscape analysis.",
+          "type": "string"
+        }
+      }
+    },
+    "transform": {
+      "description": "Information about the transformation part of the process.",
+      "type": "object",
+      "properties": {
+        "airtable": {
+          "description": "Airtable record ID(s)",
+          "oneOf": [
+            {
+              "type": "string",
+              "pattern": "rec[0-9a-zA-Z]{14}"
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "pattern": "rec[0-9a-zA-Z]{14}"
+              }
+            }
+          ]
+        },
+        "main_issue": {
+          "description": "GitHub issue number",
+          "type": "integer"
+        },
+        "stage": {
+          "description": "The transformation stage of this dataset.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true
+        },
+        "columns": {
+          "description": "The mapping from column names to data cube components",
+          "type": "object",
+          "additionalProperties": {
+            "description": "A column name to component mapping",
+            "oneOf": [
+              {
+                "description": "Definition of this dimension",
+                "type": "string"
+              },
+              {
+                "type": "object"
+              }
+            ]
+          }
+        }
+      },
+      "required": ["airtable"]
+    },
+    "load": {
+      "description": "Information about the loading part of the process.",
+      "type": "object",
+      "properties": {
+        "publish": {
+          "description": "Whether to publish the dataset at the end of the pipeline, defaults to false.",
+          "type": "boolean"
+        }
+      }
+    },
+    "sizingNotes": {
+      "description": "Hints about the complexity and size of the dataset",
+      "type": "string"
+    },
+    "notes": {
+      "description": "General notes about the dataset.",
+      "type": "string"
+    }
+  },
+  "oneOf": [
+    { "required": ["title", "publisher", "families", "landingPage", "transform"] },
+    { "required": ["title", "publisher", "families", "dataURL", "transform"] }
+  ]
+}

@@ -1,0 +1,63 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "http://gss-cogs.github.io/family-covid-19/pipelines-schema.json",
+  "title": "Pipelines",
+  "description": "Info about a family of transformation pipelines",
+  "type": "object",
+  "properties": {
+    "family": {
+      "description": "The dataset family",
+      "type": "string"
+    },
+    "github": {
+      "description": "URL of the GitHub repository",
+      "type": "string",
+      "format": "uri"
+    },
+    "jenkins": {
+      "description": "Jenkins base URL and path to family pipelines folder",
+      "type": "object",
+      "properties": {
+        "base": {
+          "description": "Base URL to Jenkins.",
+          "type": "string",
+          "format": "uri"
+        },
+        "path": {
+          "description": "List of Jenkins folders to get to family pipelines folder",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "base",
+        "path"
+      ]
+    },
+    "sparql": {
+      "description": "SPARQL endpoint URL",
+      "type": "string",
+      "format": "uri"
+    },
+    "pmd": {
+      "description": "URL to Publish My Data instance hosting family data",
+      "type": "string",
+      "format": "uri"
+    },
+    "pipelines": {
+      "description": "Set of pipeline directories, which must have the same name as the Jenkins folders",
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
+    },
+    "required": [
+      "family",
+      "github",
+      "jenkins"
+    ]
+  }
+}
