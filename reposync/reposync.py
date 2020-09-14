@@ -90,7 +90,7 @@ def update_info(info, source, producers, families, types, source_ids, touched):
 GITHUB_BASE = 'https://github.com/'
 
 
-def get_project_board(github_token, repo_url):
+def get_project_board(github_token, repo_url, project_url):
     if not repo_url.startswith(GITHUB_BASE):
         print(f'Github repo URL not recognised {repo_url}.')
         return None
@@ -101,7 +101,9 @@ def get_project_board(github_token, repo_url):
         print(f'Unknown repo {repo_url[len(GITHUB_BASE):]}')
         return
     org = g.get_organization(repo.organization.login)
-    return next((project for project in org.get_projects() if project.name == 'Transformation Pipelines'), None)
+    return next((project for project in org.get_projects()
+                 if (project_url is not None and project.html_url == project_url) or \
+                    (project_url is None and project.name == 'Transformation Pipelines')), None)
 
 
 def update_github(issue_no, title, source, github_token, repo_url, writeback, rec_id, used_labels, issue_column,
@@ -289,7 +291,8 @@ or put the token in the file {AIRTABLE_TOKEN_FILE}""")
     issue_column: Dict[int, ProjectColumn] = {}
     todo_column: Optional[ProjectColumn] = None
     if 'github' in main_info and github_token is not None:
-        trans_board = get_project_board(github_token, main_info['github'])
+        trans_board = get_project_board(github_token, main_info['github'], main_info.get('project', None))
+        print(trans_board.html_url)
         if trans_board is not None:
             for column in Bar('Fetching board issues').iter(list(trans_board.get_columns())):
                 if column.name.lower() == 'to do':
