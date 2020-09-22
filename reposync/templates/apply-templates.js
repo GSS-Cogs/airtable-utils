@@ -213,7 +213,7 @@ if (dataset) {
                                 }, null);
                         if (info.hasOwnProperty('pmd')) {
                             p.datasets = p.datasets.map(ds => {
-                                ds.uri = info.pmd + '/dataset/cube?uri=' + encodeURIComponent(ds.uri);
+                                ds.uri = info.pmd + '/cube/explore?uri=' + encodeURIComponent(ds.uri);
                                 return ds;
                             });
                         };
