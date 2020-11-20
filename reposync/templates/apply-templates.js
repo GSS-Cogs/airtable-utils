@@ -36,14 +36,14 @@ ${filteredURLs.map(x => `(<${(new URL(x)).href}>)`).join(' ')}
     }).then(function(results) {
         return results.results.bindings.map(binding => {
             return {
-                landingPage: binding.page.value,
-                uri: binding.ds.value,
-                label: binding.label.value,
-                modified: (binding.modified.value !== null) ? new Date(binding.modified.value) : null
+                landingPage: (binding.page !== null) ? binding.page.value : null,
+                uri: (binding.ds !== null) ? binding.ds.value : null,
+                label: (binding.label !== null) ? binding.label.value : null,
+                modified: (binding.modified != null && binding.modified.value !== null) ? new Date(binding.modified.value) : null
             };
         });
     });
-};
+}
 
 if (dataset) {
     Handlebars.registerHelper('ifObject', function (item, options) {
