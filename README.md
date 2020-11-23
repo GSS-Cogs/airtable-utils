@@ -59,6 +59,7 @@ Generate a new token, calling it e.g. "repo-sync" and ensure that the following
 permissions are enabled:
 * repo / public_repo
 * user / read:user
+* admin:org / write:org and read:org 
 
 then add it to the .config folder via:
 
@@ -66,17 +67,36 @@ then add it to the .config folder via:
 echo 'long-alphanumeric-key' > ~/.config/reposync/github-token
 ```
 
-#####################################################
+### Running repo-sync
 
-airtable-create-folder-and-info-files.py:
+In an already cloned `family-*` repository, running:
 
-  Script connects to Airtable COGS and pulls in data from a number of tables
-  You will need your own API key to run the script successfully and have permission to access COGS tables
+```
+repo-sync
+```
 
-  The script creates a folder structure based on each row in the main ETL table pulling in other information from 
-  several other tables when needed. within each folder an info.json file is created
+with no arguments, all the configuration will be picked up from the
+`datasets/info.json` file. Any new or updated information from Airtable
+for this dataset family will be added/updated in local files, which can
+then be checked in the usual way before committing changes and pushing
+them back with `git`.
 
-  This code needs further development as columns, Contact Details and Dimensions within the main ETL table needs 
-  further development to ensure a consistant format is used.  
-  
-#####################################################
+If there are any notes about GitHub issues, re-running with
+```
+repo-sync -g
+```
+will make changes to the GitHub issues, updating existing labels or adding
+new issues as required, moving the issues to the right place in the project
+board if they are prioritized.
+
+If there are any notes about Jenkins jobs, re-running with
+```
+repo-sync -j
+```
+will create new Jenkins jobs automatically and will ask for confirmation
+before changing any existing jobs.
+
+This last point, about changing existing jobs, should generally be answered
+with "n" since it's difficult to work out whether a job definition has
+changed or whether it's just the various plugin versions that have been
+updated.
