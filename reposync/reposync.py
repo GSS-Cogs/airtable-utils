@@ -2,27 +2,25 @@
 
 import argparse
 import json
+import os
+import re
 import shutil
 from collections import defaultdict
 from difflib import Differ
+from importlib import resources
 from json import JSONDecodeError
 from pathlib import Path
-import os
-import re
-from importlib import resources
 from string import Template
 from sys import stderr
 from typing import Dict, Optional
 
-from lxml.etree import canonicalize
-
+from airtable import Airtable
 from github import Github, UnknownObjectException
 from github.Issue import Issue
 from github.ProjectColumn import ProjectColumn
-from airtable import Airtable
 from jenkins import Jenkins, JenkinsException
+from lxml.etree import canonicalize
 from progress.bar import Bar
-
 
 try:
     from . import templates
@@ -31,6 +29,7 @@ except:
 
 REPOSYNC_CONFIG = Path.home() / '.config' / 'reposync'
 AIRTABLE_TOKEN_FILE = REPOSYNC_CONFIG / 'airtable-token'
+AIRTABLE_BASE = 'appb66460atpZjzMq'
 GITHUB_TOKEN_FILE = REPOSYNC_CONFIG / 'github-token'
 JENKINS_TOKEN_FILE = REPOSYNC_CONFIG / 'jenkins-token'
 
@@ -110,17 +109,17 @@ def update_github(issue_no, title, source, github_token, repo_url, writeback, re
                   todo_column):
     if not repo_url.startswith(GITHUB_BASE):
         print(f'Github repo URL not recognised {repo_url}.')
-        return
+        return None, None
     elif issue_no is not None and issue_no <= 0:
         print(f'Github issue number not valid: {issue_no}.')
-        return
+        return None, None
     else:
         g = Github(github_token)
         try:
             repo = g.get_repo(repo_url[len(GITHUB_BASE):])
         except UnknownObjectException:
             print(f'Unknown repo {repo_url[len(GITHUB_BASE):]}')
-            return
+            return None, None
         if issue_no is None:
             # search through issues for a match against the expected title
             issue = next((i for i in repo.get_issues() if i.title == title), None)
@@ -128,12 +127,11 @@ def update_github(issue_no, title, source, github_token, repo_url, writeback, re
                 print(f"Need to create new GitHub issue for {title}")
                 if writeback:
                     issue = repo.create_issue(title)
-                    update_airtable_issue_number(issue.number, rec_id)
         else:
             issue = repo.get_issue(number=issue_no)
         if issue is None:
             print(f'No GitHub issue for {title}')
-            return None
+            return None, None
         if issue_no is None:
             issue_no = issue.number
         airtable_labels = set(
@@ -159,7 +157,7 @@ def update_github(issue_no, title, source, github_token, repo_url, writeback, re
                 if writeback:
                     card = todo_column.create_card(content_id=issue.id, content_type='Issue')
                     card.move('top', todo_column)
-        return issue.number
+        return issue.number, issue.html_url
 
 
 def update_web_pages(root_dir):
@@ -207,18 +205,15 @@ def update_jenkins(base, path, creds, name, writeback, github_home):
                         print(f'Failed updating job:\n{e}')
 
 
-def update_airtable_issue_number(issue_number, rec_id):
-    if 'AIRTABLE_API_KEY' in os.environ:
-        airtable_token = os.environ['AIRTABLE_API_KEY']
-    elif AIRTABLE_TOKEN_FILE.exists():
-        with open(AIRTABLE_TOKEN_FILE) as tf:
-            airtable_token = tf.readline().rstrip('\n')
-    base_key = 'appb66460atpZjzMq'
-    air_tbl = Airtable(base_key, 'Source Data', api_key=airtable_token)
+def update_airtable_issue(token, issue_number, issue_url, rec_id):
+    source = Airtable(AIRTABLE_BASE, 'Source Data', api_key=token)
     # Turn the Key and new Value into a Dictionary
-    dic_dat = {'GitHub Issue Number': issue_number}
+    update = {
+        'GitHub Issue Number': issue_number,
+        'GitHub Issue URL': issue_url
+    }
     # Update AirTable with the new details using the Table name and record ID
-    Airtable.update(air_tbl, rec_id, dic_dat)
+    Airtable.update(source, rec_id, update)
 
 
 def sync():
@@ -226,6 +221,7 @@ def sync():
     parser.add_argument('--family', '-f', help='Datasets family to create/sync')
     parser.add_argument('--github', '-g', help='Update/create related GitHub issues', action='store_true')
     parser.add_argument('--jenkins', '-j', help='Update/create related Jenkins jobs', action='store_true')
+    parser.add_argument('--airtable', '-a', help='Update Airtable with GitHub issue number & URL', action='store_true')
     args = parser.parse_args()
 
     if 'AIRTABLE_API_KEY' in os.environ:
@@ -249,14 +245,12 @@ or put the token in the file {AIRTABLE_TOKEN_FILE}""")
     else:
         jenkins_creds = None
 
-    base = 'appb66460atpZjzMq'
-
     sources = {record['id']: record['fields'] for record in
-               Airtable(base, 'Source Data', api_key=airtable_token).get_all()}
-    families = {record['id']: record['fields'] for record in Airtable(base, 'Family', api_key=airtable_token).get_all()}
+               Airtable(AIRTABLE_BASE, 'Source Data', api_key=airtable_token).get_all()}
+    families = {record['id']: record['fields'] for record in Airtable(AIRTABLE_BASE, 'Family', api_key=airtable_token).get_all()}
     producers = {record['id']: record['fields'] for record in
-                 Airtable(base, 'Dataset Producer', api_key=airtable_token).get_all()}
-    types = {record['id']: record['fields'] for record in Airtable(base, 'Type', api_key=airtable_token).get_all()}
+                 Airtable(AIRTABLE_BASE, 'Dataset Producer', api_key=airtable_token).get_all()}
+    types = {record['id']: record['fields'] for record in Airtable(AIRTABLE_BASE, 'Type', api_key=airtable_token).get_all()}
     tech_stages = set([stage for source in sources.values() for stage in source.get('Tech Stage', [])])
     ba_stages = set([stage for source in sources.values() for stage in source.get('BA Stage', [])])
 
@@ -350,13 +344,19 @@ or put the token in the file {AIRTABLE_TOKEN_FILE}""")
                 update_info(dataset_info, source, producers, families, types,
                             dataset_path_source[dataset_dir], dataset_info_path in touched_info)
                 if 'github' in main_info:
-                    issue_number = update_github(dataset_info.get('transform', {}).get('main_issue', None),
-                                                 dataset_dir, source, github_token, main_info['github'], args.github,
-                                                 source_id, tech_stages, issue_column, todo_column)
+                    issue_number, issue_url = update_github(dataset_info.get('transform', {}).get('main_issue', None),
+                                                            dataset_dir, source, github_token, main_info['github'],
+                                                            args.github,
+                                                            source_id, tech_stages, issue_column, todo_column)
                     if issue_number is not None:
                         if 'transform' not in dataset_info:
                             dataset_info['transform'] = {}
                         dataset_info['transform']['main_issue'] = issue_number
+                        if source.get('GitHub Issue Number', None) != issue_number or \
+                                source.get('GitHub Issue URL', None) != issue_url:
+                            print(f'Airtable GitHub link needs update')
+                            if args.airtable:
+                                update_airtable_issue(airtable_token, issue_number, issue_url, source_id)
 
                 pipelines.append(dataset_dir)
                 with open(dataset_info_path, 'w') as info_file:
