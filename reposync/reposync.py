@@ -7,20 +7,26 @@ import re
 import shutil
 from collections import defaultdict
 from difflib import Differ
+from functools import lru_cache
 from importlib import resources
+from io import BytesIO
 from json import JSONDecodeError
 from pathlib import Path
 from string import Template
 from sys import stderr
 from typing import Dict, Optional
 
+import jsonschema
+import requests
 from airtable import Airtable
 from github import Github, UnknownObjectException
 from github.Issue import Issue
 from github.ProjectColumn import ProjectColumn
 from jenkins import Jenkins, JenkinsException
-from lxml.etree import canonicalize
+from jsonschema import ValidationError
+from lxml.etree import canonicalize, parse, tostring
 from progress.bar import Bar
+from xmldiff.main import diff_texts, diff_files
 
 try:
     from . import templates
@@ -169,6 +175,14 @@ def update_web_pages(root_dir):
                 shutil.copy(file_path, root_dir / resource)
 
 
+def canonicalize_jenkins_xml(xml: str) -> str:
+    tree = parse(BytesIO(bytearray(xml, 'utf-8')))
+    for node_with_plugin in tree.xpath('//node()[@plugin]'):
+        plugin_without_version = ''.join(node_with_plugin.get('plugin').split('@')[:-1])
+        node_with_plugin.set('plugin', plugin_without_version)
+    return canonicalize(tree)
+
+
 def update_jenkins(base, path, creds, name, writeback, github_home):
     server = Jenkins(base, username=creds['username'], password=creds['token'])
     full_job_name = '/'.join(path) + '/' + name
@@ -179,28 +193,28 @@ def update_jenkins(base, path, creds, name, writeback, github_home):
         job = None
 
     job_template = Template(resources.read_text(templates, 'jenkins_job.xml'))
-    config_xml = job_template.substitute(github_home=github_home,
-                                         git_clone_url=github_home + '.git',
-                                         dataset_dir=name)
-    config_xml = canonicalize(config_xml)
+    config_xml_string = canonicalize_jenkins_xml(job_template.substitute(github_home=github_home,
+                                                git_clone_url=github_home + '.git',
+                                                dataset_dir=name))
 
     if job is None and writeback:
         print(f'Creating new job {full_job_name}')
         try:
-            server.create_job(full_job_name, config_xml)
+            server.create_job(full_job_name, config_xml_string)
         except JenkinsException as e:
             print(f'Failed creating job:\n{e}')
     elif job is not None:
-        current_xml = canonicalize(server.get_job_config(full_job_name))
-        if current_xml != config_xml:
+        current_xml_string = canonicalize_jenkins_xml(server.get_job_config(full_job_name))
+        diffs = diff_files(BytesIO(bytearray(current_xml_string, encoding='utf-8')),
+                           BytesIO(bytearray(config_xml_string, encoding='utf-8')))
+        if len(diffs) > 0:
             print(f'Jenkins job {full_job_name} needs update')
             if writeback:
-                stderr.writelines(Differ().compare(current_xml.splitlines(keepends=True),
-                                                   config_xml.splitlines(keepends=True)))
+                print(diffs)
                 if input(f'Are you sure you want to update configuration for {full_job_name} (y/n) ? ') == 'y':
                     print(f'Updating job configuration for {full_job_name}')
                     try:
-                        server.reconfig_job(full_job_name, config_xml)
+                        server.reconfig_job(full_job_name, config_xml_string)
                     except JenkinsException as e:
                         print(f'Failed updating job:\n{e}')
 
@@ -214,6 +228,16 @@ def update_airtable_issue(token, issue_number, issue_url, rec_id):
     }
     # Update AirTable with the new details using the Table name and record ID
     Airtable.update(source, rec_id, update)
+
+
+@lru_cache()
+def fetch_json(url):
+    return requests.get(url).json()
+
+
+def validate(json_obj, schema_url):
+    schema_obj = fetch_json(schema_url)
+    jsonschema.validate(instance=json_obj, schema=schema_obj)
 
 
 def sync():
@@ -261,6 +285,8 @@ or put the token in the file {AIRTABLE_TOKEN_FILE}""")
     if main_info_file.exists():
         with open(main_info_file) as info_file:
             main_info = json.load(info_file)
+            validate(main_info,
+                     main_info.get('$schema', 'http://gss-cogs.github.io/family-schemas/pipelines-schema.json'))
     else:
         main_info = {}
 
@@ -304,9 +330,14 @@ or put the token in the file {AIRTABLE_TOKEN_FILE}""")
                 with open(dataset_info_path) as info_file:
                     try:
                         dataset_info = json.load(info_file)
+                        validate(dataset_info, dataset_info.get(
+                            '$schema', 'http://gss-cogs.github.io/family-schemas/dataset-schema.json'))
                     except JSONDecodeError as e:
                         print(f'Warning: problem reading {dataset_info_path}:\n{e}')
                         continue
+                    except ValidationError as ve:
+                        print(f'Error validating {dataset_info_path}:')
+                        print(f'  {" / ".join(ve.absolute_path)}: {ve.message}')
                 if 'transform' in dataset_info and 'airtable' in dataset_info['transform']:
                     recordIds = dataset_info['transform']['airtable']
                     if type(recordIds) != list:

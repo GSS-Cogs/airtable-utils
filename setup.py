@@ -20,7 +20,8 @@ setuptools.setup(
     ],
     python_requires='>=3.7',
     setup_requires=['setuptools-git-version'],
-    install_requires=['airtable-python-wrapper', 'pygithub', 'python-jenkins', 'lxml>=4.4.0', 'progress'],
+    install_requires=['airtable-python-wrapper', 'pygithub', 'python-jenkins',
+                      'lxml>=4.4.0', 'progress', 'jsonschema', 'xmldiff'],
     entry_points={
         'console_scripts': ['repo-sync=reposync.reposync:sync']
     },
