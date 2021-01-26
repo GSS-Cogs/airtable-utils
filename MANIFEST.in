@@ -1,1 +1,1 @@
-recursive-include reposync/templates *.html *.hbs *.js *.xml
+recursive-include reposync/templates *.html *.hbs *.js *.xml *.md

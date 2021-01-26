@@ -1,0 +1,7 @@
+- [ ] Transform specified
+- [ ] Transform implemented
+- [ ] Codelists created
+- [ ] Column mapping
+- [ ] Additional metadata
+- [ ] Reviewed
+- [ ] Periodic build trigger

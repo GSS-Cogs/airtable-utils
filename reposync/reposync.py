@@ -132,7 +132,10 @@ def update_github(issue_no, title, source, github_token, repo_url, writeback, re
             if issue is None:
                 print(f"Need to create new GitHub issue for {title}")
                 if writeback:
-                    issue = repo.create_issue(title)
+                    issue = repo.create_issue(
+                        title,
+                        body=resources.read_text(templates, 'issue_body.md')
+                    )
         else:
             issue = repo.get_issue(number=issue_no)
         if issue is None:
