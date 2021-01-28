@@ -5,6 +5,7 @@ import json
 import os
 import re
 import shutil
+import textwrap
 from collections import defaultdict
 from difflib import Differ
 from functools import lru_cache
@@ -340,7 +341,7 @@ or put the token in the file {AIRTABLE_TOKEN_FILE}""")
                         continue
                     except ValidationError as ve:
                         print(f'Error validating {dataset_info_path}:')
-                        print(f'  {" / ".join(ve.absolute_path)}: {ve.message}')
+                        print(f'  {" / ".join(ve.absolute_path)}: {textwrap.shorten(ve.message, width=120)}')
                 if 'transform' in dataset_info and 'airtable' in dataset_info['transform']:
                     recordIds = dataset_info['transform']['airtable']
                     if type(recordIds) != list:
@@ -371,7 +372,11 @@ or put the token in the file {AIRTABLE_TOKEN_FILE}""")
                 dataset_info_path = datasets_path / dataset_dir / 'info.json'
                 if dataset_info_path.exists():
                     with open(dataset_info_path) as info_file:
-                        dataset_info = json.load(info_file)
+                        try:
+                            dataset_info = json.load(info_file)
+                        except JSONDecodeError as e:
+                            print(f"Error loading {dataset_info_path} as JSON:\n{e}")
+                            continue
                 else:
                     dataset_info = {}
                 dataset_path_source[dataset_dir].append(source_id)
