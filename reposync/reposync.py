@@ -6,7 +6,7 @@ import os
 import re
 import shutil
 import textwrap
-from collections import defaultdict
+from collections import defaultdict, OrderedDict
 from difflib import Differ
 from functools import lru_cache
 from importlib import resources
@@ -50,13 +50,16 @@ def pathify(label, segments=False):
                          re.sub(r'[^\w' + ('/]' if segments else ']'), '-', label)))
 
 
-def update_info(info, source, producers, families, types, source_ids, touched):
+def update_info(info, source, producers, families, types, source_ids, touched, directory):
     info['title'] = source.get('Name', '').strip()
     producer = producers[source['Producer'][0]]
     if 'Full Name' in producer and producer['Full Name'].strip() != '':
         info['publisher'] = producer['Full Name'].strip()
     else:
         info['publisher'] = producer['Name'].strip()
+    if 'id' not in info:
+        info['id'] = pathify(directory).lower()
+        info.move_to_end('id', last=False)
     info['description'] = source.get('Description', '').strip()
     if 'landingPage' in info and touched:
         pages = set()
@@ -288,11 +291,11 @@ or put the token in the file {AIRTABLE_TOKEN_FILE}""")
     main_info_file = datasets_path / 'info.json'
     if main_info_file.exists():
         with open(main_info_file) as info_file:
-            main_info = json.load(info_file)
+            main_info = json.load(info_file, object_pairs_hook=OrderedDict)
             validate(main_info,
                      main_info.get('$schema', 'http://gss-cogs.github.io/family-schemas/pipelines-schema.json'))
     else:
-        main_info = {}
+        main_info = OrderedDict()
 
     if args.family is not None:
         family_name = args.family
@@ -333,7 +336,7 @@ or put the token in the file {AIRTABLE_TOKEN_FILE}""")
             if dataset_info_path.exists():
                 with open(dataset_info_path) as info_file:
                     try:
-                        dataset_info = json.load(info_file)
+                        dataset_info = json.load(info_file, object_pairs_hook=OrderedDict)
                         validate(dataset_info, dataset_info.get(
                             '$schema', 'http://gss-cogs.github.io/family-schemas/dataset-schema.json'))
                     except JSONDecodeError as e:
@@ -373,15 +376,15 @@ or put the token in the file {AIRTABLE_TOKEN_FILE}""")
                 if dataset_info_path.exists():
                     with open(dataset_info_path) as info_file:
                         try:
-                            dataset_info = json.load(info_file)
+                            dataset_info = json.load(info_file, object_pairs_hook=OrderedDict)
                         except JSONDecodeError as e:
                             print(f"Error loading {dataset_info_path} as JSON:\n{e}")
                             continue
                 else:
-                    dataset_info = {}
+                    dataset_info = OrderedDict()
                 dataset_path_source[dataset_dir].append(source_id)
                 update_info(dataset_info, source, producers, families, types,
-                            dataset_path_source[dataset_dir], dataset_info_path in touched_info)
+                            dataset_path_source[dataset_dir], dataset_info_path in touched_info, dataset_dir)
                 if 'github' in main_info:
                     issue_number, issue_url = update_github(dataset_info.get('transform', {}).get('main_issue', None),
                                                             dataset_dir, source, github_token, main_info['github'],
