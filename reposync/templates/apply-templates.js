@@ -146,7 +146,8 @@ if (dataset) {
                                 return $.Deferred().resolve(dsinfo).promise();
                             });
                         }, function() {
-                            console.log(`Failed fetching/parsing ${pipeline} info.json`)
+                            console.log(`Failed fetching/parsing ${pipeline} info.json`);
+                            return $.Deferred().resolve({}).promise();
                         })
                     .then(function(dsinfo) {
                         return $.ajax({url: pipeline + '/flowchart.ttl', method: 'HEAD'})
@@ -183,7 +184,7 @@ if (dataset) {
                 let fetchDatasets;
                 if (info.hasOwnProperty('sparql')) {
                     fetchDatasets = datasetFetcher(info.sparql, collected.flatMap(function(p) {
-                        if (p.hasOwnProperty('info') && (p.info.hasOwnProperty('landingPage'))) {
+                        if (p && p.hasOwnProperty('info') && (p.info.hasOwnProperty('landingPage'))) {
                             return p.info.landingPage
                         } else {
                             return []
