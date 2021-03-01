@@ -59,7 +59,7 @@ if (dataset) {
             $.getJSON('info.json', function (mainInfo) {
                 let spec_url = mainInfo.jenkins.base + '/' + mainInfo.jenkins.path.map(function (p) {
                     return 'job/' + p;
-                }).join('/') + dataset + '/lastBuild/artifact/datasets/' + dataset + '/out/spec.json';
+                }).join('/') + '/' + dataset + '/lastBuild/artifact/datasets/' + dataset + '/out/spec.json';
                 $.getJSON(spec_url, function (spec_obj) {
                     $("#body").html(template({
                         "dataset_path": dataset,
@@ -137,7 +137,7 @@ if (dataset) {
             document.title = "Dataset family: " + info.family;
             const fetches = info.pipelines.map(function (pipeline) {
                 return $.getJSON(pipeline + '/info.json')
-                    .then(function (dsinfo) {
+                    .then(function(dsinfo) {
                         return $.ajax({url: pipeline + '/spec.md', method: 'HEAD'})
                             .then(function () {
                                 dsinfo.spec = pipeline + '/spec';
@@ -145,6 +145,8 @@ if (dataset) {
                             }, function() {
                                 return $.Deferred().resolve(dsinfo).promise();
                             });
+                        }, function() {
+                            console.log(`Failed fetching/parsing ${pipeline} info.json`)
                         })
                     .then(function(dsinfo) {
                         return $.ajax({url: pipeline + '/flowchart.ttl', method: 'HEAD'})
@@ -158,7 +160,7 @@ if (dataset) {
                     .then(function(dsinfo) {
                         let spec_url = info.jenkins.base + '/' + info.jenkins.path.map(function (p) {
                             return 'job/' + p;
-                        }).join('/') + pipeline + '/lastBuild/artifact/datasets/' + pipeline + '/out/spec.json';
+                        }).join('/') + '/' + pipeline + '/lastBuild/artifact/datasets/' + pipeline + '/out/spec.json';
                         return $.ajax({url: spec_url, method: 'HEAD'})
                             .then(function () {
                                 dsinfo.jenkinsSpec = '?spec=' + pipeline;
@@ -167,7 +169,7 @@ if (dataset) {
                                 return $.Deferred().resolve(dsinfo).promise();
                             });
 
-                    });
+                    })
             });
             $.when.apply($, fetches).then(function() {
                 const allInfo = arguments;
