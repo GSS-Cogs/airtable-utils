@@ -182,7 +182,13 @@ if (dataset) {
                 });
                 let fetchDatasets;
                 if (info.hasOwnProperty('sparql')) {
-                    fetchDatasets = datasetFetcher(info.sparql, collected.flatMap(p => p.info.landingPage));
+                    fetchDatasets = datasetFetcher(info.sparql, collected.flatMap(function(p) {
+                        if (p.hasOwnProperty('info') && (p.info.hasOwnProperty('landingPage'))) {
+                            return p.info.landingPage
+                        } else {
+                            return []
+                        }
+                    }));
                 } else {
                     fetchDatasets = $.Deferred();
                     fetchDatasets.resolve([]);
