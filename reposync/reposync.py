@@ -191,7 +191,7 @@ def canonicalize_jenkins_xml(xml: str) -> str:
 
 
 def update_jenkins(base, path, creds, name, writeback, github_home):
-    server = Jenkins(base, username=creds['username'], password=creds['token'])
+    server = Jenkins(base, username=creds['username'], password=creds['token'], timeout=300)
     full_job_name = '/'.join(path) + '/' + name
     if server.job_exists(full_job_name):
         job = server.get_job_info(full_job_name)
@@ -283,7 +283,7 @@ or put the token in the file {AIRTABLE_TOKEN_FILE}""")
                  Airtable(AIRTABLE_BASE, 'Dataset Producer', api_key=airtable_token).get_all()}
     types = {record['id']: record['fields'] for record in Airtable(AIRTABLE_BASE, 'Type', api_key=airtable_token).get_all()}
     tech_stages = set([stage for source in sources.values() for stage in source.get('Tech Stage', [])])
-    ba_stages = set([stage for source in sources.values() for stage in source.get('BA Stage', [])])
+    ba_stages = set([source['BA Stage'] for source in sources.values() if 'BA Stage' in source])
 
     datasets_path = Path('datasets')
     datasets_path.mkdir(exist_ok=True)
@@ -361,6 +361,9 @@ or put the token in the file {AIRTABLE_TOKEN_FILE}""")
     touched_info = set()
     for source_id, source in sources.items():
         if ('Family' in source and family_id in source['Family']) or (source_id in source_dataset_path):
+            if 'BA Stage' in source and source['BA Stage'] == 'Not Required':
+                print(f'{source} marked as not required, so ignoring.')
+                continue
             if 'Producer' in source and len(source['Producer']) == 1:
                 producer = pathify(producers[source['Producer'][0]]['Name'])
                 if source_id in source_dataset_path:
