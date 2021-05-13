@@ -72,9 +72,13 @@ echo 'long-alphanumeric-key' > ~/.config/reposync/github-token
 In an already cloned `family-*` repository, running:
 
 ```
+repo-sync --family "Family Name"
+```
+to pull in the datasets from Airtable and create all necessary directories and info.json files. This is the first command to be run when setting up a new family repository. Note replace 'Family Name' with correct name e.g. `repo-sync --family "Climate Change"`.
+
+```
 repo-sync
 ```
-
 with no arguments, all the configuration will be picked up from the
 `datasets/info.json` file. Any new or updated information from Airtable
 for this dataset family will be added/updated in local files, which can
@@ -100,3 +104,9 @@ This last point, about changing existing jobs, should generally be answered
 with "n" since it's difficult to work out whether a job definition has
 changed or whether it's just the various plugin versions that have been
 updated.
+
+If there are any notes about Airtable, re-running with 
+```
+repo-sync -a
+```
+will update Airtable with any GitHub issue numbers or URLs.
