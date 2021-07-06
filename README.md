@@ -7,6 +7,10 @@ Keeps a local Git repository in sync with the information from Airtables, while
 optionally creating/updating related GitHub issues and creating/updating Jenkins
 pipelines.
 
+## Installation
+If you're using a `databaker-docker` container, `airtable-utils` is already installed and ready to use. Skip the manual installation step and go straight to Airtable API Token.
+
+### Manual Installation
 Install the commandline app using pip:
 
 ```
@@ -20,7 +24,7 @@ If the directory doesn't exist:
 mkdir -p ~/.config/reposync
 ```
 
-### Airable API Token
+### Airtable API Token
 
 Log in to Airtable, then click on the account icon, top right, then select "Account"
 from the drop down list. This should take you to https://airtable.com/account
