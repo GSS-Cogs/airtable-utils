@@ -69,7 +69,7 @@ echo 'long-alphanumeric-key' > ~/.config/reposync/github-token
 
 ### Running repo-sync
 
-In an already cloned `family-*` repository, running:
+In an already cloned `family-*` repository. *First create a new branch so that you can pick the changes you want to merge.* The command is:
 
 ```
 repo-sync --family "Family Name"
