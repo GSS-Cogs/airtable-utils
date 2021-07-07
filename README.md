@@ -47,7 +47,7 @@ file to look like:
 ```
 {
   "username": "<your-username>",
-  "token": "<long-api-token",
+  "token": "<long-api-token>"
 }
 ```
 
