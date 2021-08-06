@@ -28,6 +28,7 @@ from jsonschema import ValidationError
 from lxml.etree import canonicalize, parse, tostring
 from progress.bar import Bar
 from xmldiff.main import diff_texts, diff_files
+from git import Repo
 
 try:
     from . import templates
@@ -111,7 +112,7 @@ def get_project_board(github_token, repo_url, project_url):
         return
     org = g.get_organization(repo.organization.login)
     return next((project for project in org.get_projects()
-                 if (project_url is not None and project.html_url == project_url) or \
+                 if (project_url is not None and getattr(project, 'html_url', None) == project_url) or
                     (project_url is None and project.name == 'Transformation Pipelines')), None)
 
 
@@ -190,8 +191,8 @@ def canonicalize_jenkins_xml(xml: str) -> str:
     return canonicalize(tree)
 
 
-def update_jenkins(base, path, creds, name, writeback, github_home):
-    server = Jenkins(base, username=creds['username'], password=creds['token'], timeout=300)
+def update_jenkins(base, path, creds, name, writeback, github_home, branch_ref):
+    server = Jenkins(base, username=creds['username'], password=creds['token'], timeout=10000)
     full_job_name = '/'.join(path) + '/' + name
     if server.job_exists(full_job_name):
         job = server.get_job_info(full_job_name)
@@ -200,9 +201,11 @@ def update_jenkins(base, path, creds, name, writeback, github_home):
         job = None
 
     job_template = Template(resources.read_text(templates, 'jenkins_job.xml'))
-    config_xml_string = canonicalize_jenkins_xml(job_template.substitute(github_home=github_home,
-                                                git_clone_url=github_home + '.git',
-                                                dataset_dir=name))
+    config_xml_string = canonicalize_jenkins_xml(
+        job_template.substitute(github_home=github_home,
+                                git_clone_url=github_home + '.git',
+                                dataset_dir=name,
+                                branch_ref=branch_ref))
 
     if job is None and writeback:
         print(f'Creating new job {full_job_name}')
@@ -276,6 +279,8 @@ or put the token in the file {AIRTABLE_TOKEN_FILE}""")
     else:
         jenkins_creds = None
 
+    repo = Repo('.')
+
     sources = {record['id']: record['fields'] for record in
                Airtable(AIRTABLE_BASE, 'Source Data', api_key=airtable_token).get_all()}
     families = {record['id']: record['fields'] for record in Airtable(AIRTABLE_BASE, 'Family', api_key=airtable_token).get_all()}
@@ -319,8 +324,8 @@ or put the token in the file {AIRTABLE_TOKEN_FILE}""")
     todo_column: Optional[ProjectColumn] = None
     if 'github' in main_info and github_token is not None:
         trans_board = get_project_board(github_token, main_info['github'], main_info.get('project', None))
-        print(trans_board.html_url)
         if trans_board is not None:
+            print(trans_board.html_url)
             for column in Bar('Fetching board issues').iter(list(trans_board.get_columns())):
                 if column.name.lower() == 'to do':
                     todo_column = column
@@ -411,7 +416,7 @@ or put the token in the file {AIRTABLE_TOKEN_FILE}""")
                 if 'jenkins' in main_info and 'base' in main_info['jenkins'] \
                         and 'path' in main_info['jenkins']:
                     update_jenkins(main_info['jenkins']['base'], main_info['jenkins']['path'], jenkins_creds,
-                                   dataset_dir, args.jenkins, main_info.get('github', None))
+                                   dataset_dir, args.jenkins, main_info.get('github', None), repo.head.ref.path)
 
     main_info['pipelines'] = sorted(set(pipelines))
     with open(main_info_file, 'w') as info_file:
