@@ -22,17 +22,21 @@ function datasetFetcher(endpoint, pipelineJobs) {
 PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
 PREFIX dct: <http://purl.org/dc/terms/>
 PREFIX pmdcat: <http://publishmydata.com/pmdcat#>
+PREFIX qb: <http://purl.org/linked-data/cube#>
 PREFIX prov: <http://www.w3.org/ns/prov#>
-SELECT DISTINCT ?page ?ds ?label ?modified ?pipelineJob WHERE {
+SELECT DISTINCT ?page ?ds ?label ?modified ?pipelineJob ?cubeType WHERE {
   ?jobGraph prov:wasGeneratedBy [ prov:wasAssociatedWith ?pipelineJob ] .
   GRAPH ?jobGraph {
     ?ds a pmdcat:Dataset;
-      dcat:landingPage ?page;
       rdfs:label ?label .
     OPTIONAL {
-        ?ds dct:modified ?modified
+      ?ds dcat:landingPage ?page
+    }
+    OPTIONAL {
+      ?ds dct:modified ?modified
     }
   }
+  ?ds pmdcat:datasetContents [ a qb:DataSet ] .
 } VALUES (?pipelineJob) {
 ${filteredURLs.map(x => `(<${(new URL(x)).href}>)`).join(' ')}
 }`
@@ -40,13 +44,22 @@ ${filteredURLs.map(x => `(<${(new URL(x)).href}>)`).join(' ')}
         dataType: 'json',
         headers: {"Accept": "application/sparql-results+json"}
     }).then(function(results) {
+        function safeGetValue(res, prop) {
+            if (res.hasOwnProperty(prop) && res[prop].hasOwnProperty('value')) {
+                return res[prop].value
+            }
+            return null;
+        }
+        function asDate(v) {
+            return (v !== null) ? new Date(v) : v;
+        }
         return results.results.bindings.map(binding => {
             return {
-                landingPage: (binding.page !== null) ? binding.page.value : null,
-                uri: (binding.ds !== null) ? binding.ds.value : null,
-                label: (binding.label !== null) ? binding.label.value : null,
-                modified: (binding.modified != null && binding.modified.value !== null) ? new Date(binding.modified.value) : null,
-                job: (binding.pipelineJob !== null) ? binding.pipelineJob.value : null
+                landingPage: safeGetValue(binding, 'page'),
+                uri: safeGetValue(binding, 'ds'),
+                label: safeGetValue(binding, 'label'),
+                modified: asDate(safeGetValue(binding,'modified')),
+                job: safeGetValue(binding, 'pipelineJob')
             };
         });
     });
