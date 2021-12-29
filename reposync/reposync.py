@@ -247,7 +247,7 @@ def update_jenkins(base, path, creds, name, writeback, github_home, branch_ref):
             _ensure_jenkins_folder_exists(jenkins_server, csvcubed_job_folder_path)):
 
         # CSV-W Generation Job
-        csvw_gen_job_template = Template(resources.read_text(templates, 'jenkins_job_csvcubed_csvw_generation.xml'))
+        csvw_gen_job_template = Template(resources.read_text(templates, 'jenkins_job_csvcubed_generate_csvw.xml'))
         csvw_gen_job_config_xml = csvw_gen_job_template.substitute(github_home=github_home,
                                                                    git_clone_url=github_home + '.git',
                                                                    dataset_dir=name,
