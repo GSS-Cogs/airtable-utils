@@ -201,7 +201,8 @@ def canonicalize_jenkins_xml(xml: str) -> str:
     return canonicalize(tree)
 
 
-def update_jenkins(base, path, creds, name, writeback, github_home, branch_ref):
+def update_jenkins(base: str, path: list[str], creds: dict, name: str, writeback: bool, github_home: str,
+                   branch_ref: str, family_name: str):
     def _upsert_jenkins_job(server: Jenkins, full_job_name: str, xml_job_config: str):
         if server.job_exists(full_job_name):
             job = server.get_job_info(full_job_name)
@@ -266,10 +267,11 @@ def update_jenkins(base, path, creds, name, writeback, github_home, branch_ref):
 
         # Upload CSV-W to PMD Job
         csvw2pmd_job_template = Template(resources.read_text(templates, 'jenkins_job_csvcubed_csvw2pmd.xml'))
+        family_name_path = pathify(family_name).lower()
         csvw2pmd_job_config_xml = csvw2pmd_job_template.substitute(
             csvw_gen_job_name=name,
-            graph_uri_base=f'http://gss-data.org.uk/graph/{name.lower()}',
-            resources_uri_base=f'http://gss-data.org.uk/data/{name.lower()}'
+            graph_uri_base=f'http://gss-data.org.uk/graph/{family_name_path}/{name.lower()}',
+            resources_uri_base=f'http://gss-data.org.uk/data/{family_name_path}/{name.lower()}'
         )
 
         _upsert_jenkins_job(jenkins_server, f'{csvcubed_job_folder_path}/upload-to-pmd', csvw2pmd_job_config_xml)
@@ -465,7 +467,8 @@ or put the token in the file {AIRTABLE_TOKEN_FILE}""")
                 if 'jenkins' in main_info and 'base' in main_info['jenkins'] \
                         and 'path' in main_info['jenkins']:
                     update_jenkins(main_info['jenkins']['base'], main_info['jenkins']['path'], jenkins_creds,
-                                   dataset_dir, args.jenkins, main_info.get('github', None), repo.head.ref.path)
+                                   dataset_dir, args.jenkins, main_info.get('github', None), repo.head.ref.path,
+                                   main_info['family'])
 
     main_info['pipelines'] = sorted(set(pipelines))
     with open(main_info_file, 'w') as info_file:
