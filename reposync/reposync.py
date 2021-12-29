@@ -192,42 +192,80 @@ def canonicalize_jenkins_xml(xml: str) -> str:
 
 
 def update_jenkins(base, path, creds, name, writeback, github_home, branch_ref):
-    server = Jenkins(base, username=creds['username'], password=creds['token'], timeout=10000)
-    full_job_name = '/'.join(path) + '/' + name
-    if server.job_exists(full_job_name):
-        job = server.get_job_info(full_job_name)
-    else:
-        print(f'Jenkins job {full_job_name} doesn''t exist.')
-        job = None
+    def _upsert_jenkins_job(server: Jenkins, full_job_name: str, xml_job_config: str):
+        if server.job_exists(full_job_name):
+            job = server.get_job_info(full_job_name)
+        else:
+            print(f'Jenkins job {full_job_name} doesn''t exist.')
+            job = None
+        config_xml_string = canonicalize_jenkins_xml(xml_job_config)
+        if job is None and writeback:
+            print(f'Creating new job {full_job_name}')
+            try:
+                server.create_job(full_job_name, config_xml_string)
+            except JenkinsException as e:
+                print(f'Failed creating job:\n{e}')
+        elif job is not None:
+            current_xml_string = canonicalize_jenkins_xml(server.get_job_config(full_job_name))
+            diffs = diff_files(BytesIO(bytearray(current_xml_string, encoding='utf-8')),
+                               BytesIO(bytearray(config_xml_string, encoding='utf-8')))
+            if len(diffs) > 0:
+                print(f'Jenkins job {full_job_name} needs update')
+                if writeback:
+                    print(diffs)
+                    if input(f'Are you sure you want to update configuration for {full_job_name} (y/n) ? ') == 'y':
+                        print(f'Updating job configuration for {full_job_name}')
+                        try:
+                            server.reconfig_job(full_job_name, config_xml_string)
+                        except JenkinsException as e:
+                            print(f'Failed updating job:\n{e}')
 
+    def _ensure_jenkins_folder_exists(server: Jenkins, folder_path: str) -> bool:
+        if server.job_exists(folder_path):
+            return True
+        elif writeback:
+            server.create_folder(folder_path)
+            return True
+
+        print(f'Jenkins folder at {csvcubed_folder_path} does not exist.')
+        return False
+
+    jenkins_server = Jenkins(base, username=creds['username'], password=creds['token'], timeout=10000)
+
+    # Upsert the original Jenkins Job Template
     job_template = Template(resources.read_text(templates, 'jenkins_job.xml'))
-    config_xml_string = canonicalize_jenkins_xml(
-        job_template.substitute(github_home=github_home,
-                                git_clone_url=github_home + '.git',
-                                dataset_dir=name,
-                                branch_ref=branch_ref))
+    job_config_xml = job_template.substitute(github_home=github_home,
+                                             git_clone_url=github_home + '.git',
+                                             dataset_dir=name,
+                                             branch_ref=branch_ref)
+    _upsert_jenkins_job(jenkins_server, '/'.join(path) + '/' + name, job_config_xml)
 
-    if job is None and writeback:
-        print(f'Creating new job {full_job_name}')
-        try:
-            server.create_job(full_job_name, config_xml_string)
-        except JenkinsException as e:
-            print(f'Failed creating job:\n{e}')
-    elif job is not None:
-        current_xml_string = canonicalize_jenkins_xml(server.get_job_config(full_job_name))
-        diffs = diff_files(BytesIO(bytearray(current_xml_string, encoding='utf-8')),
-                           BytesIO(bytearray(config_xml_string, encoding='utf-8')))
-        if len(diffs) > 0:
-            print(f'Jenkins job {full_job_name} needs update')
-            if writeback:
-                print(diffs)
-                if input(f'Are you sure you want to update configuration for {full_job_name} (y/n) ? ') == 'y':
-                    print(f'Updating job configuration for {full_job_name}')
-                    try:
-                        server.reconfig_job(full_job_name, config_xml_string)
-                    except JenkinsException as e:
-                        print(f'Failed updating job:\n{e}')
+    # Upsert the csvcubed-style Jenkins Job Templates
+    csvcubed_folder_path = '/'.join(path) + '/csvcubed'
+    csvcubed_job_folder_path = f'{csvcubed_folder_path}/{name}'
+    if (_ensure_jenkins_folder_exists(jenkins_server, csvcubed_folder_path) and
+            _ensure_jenkins_folder_exists(jenkins_server, csvcubed_job_folder_path)):
 
+        # CSV-W Generation Job
+        csvw_gen_job_template = Template(resources.read_text(templates, 'jenkins_job_csvcubed_csvw_generation.xml'))
+        csvw_gen_job_config_xml = csvw_gen_job_template.substitute(github_home=github_home,
+                                                                   git_clone_url=github_home + '.git',
+                                                                   dataset_dir=name,
+                                                                   branch_ref=branch_ref)
+        _upsert_jenkins_job(jenkins_server, f'{csvcubed_job_folder_path}/{name}', csvw_gen_job_config_xml)
+
+        # Upload CSV-W to PMD Job
+        csvw2pmd_job_template = Template(resources.read_text(templates, 'jenkins_job_csvcubed_csvw2pmd.xml'))
+        csvw2pmd_job_config_xml = csvw2pmd_job_template.substitute(
+            csvw_gen_job_name=name,
+            graph_uri_base=f'http://gss-data.org.uk/graph/{name.lower()}',
+            resources_uri_base=f'http://gss-data.org.uk/data/{name.lower()}'
+        )
+
+        _upsert_jenkins_job(jenkins_server, f'{csvcubed_job_folder_path}/upload-to-pmd', csvw2pmd_job_config_xml)
+    else:
+        print('Could not ensure csvcubed configuration exists. Parent folders do not exist. '
+              'Re-run with jenkins flag `-j` set to create said folders and jobs.')
 
 def update_airtable_issue(token, issue_number, issue_url, rec_id):
     source = Airtable(AIRTABLE_BASE, 'Source Data', api_key=token)
