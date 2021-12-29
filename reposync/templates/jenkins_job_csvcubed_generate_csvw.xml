@@ -55,11 +55,8 @@
                 </hudson.plugins.git.extensions.impl.PathRestriction>
             </extensions>
         </scm>
-          <script>
-            @Library(&apos;pmd@csvwlib-build&apos;) _
-            buildcsvw {}
-          </script>
-      <sandbox>true</sandbox>
+        <scriptPath>datasets/Jenkinsfile-csvcubed</scriptPath>
+        <lightweight>true</lightweight>
     </definition>
     <triggers/>
     <disabled>true</disabled>

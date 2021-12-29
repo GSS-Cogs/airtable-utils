@@ -184,9 +184,19 @@ def update_web_pages(root_dir):
 
 
 def canonicalize_jenkins_xml(xml: str) -> str:
+    def _extract_plugin_name(plugin_name_and_maybe_version: str) -> str:
+        parts = plugin_name_and_maybe_version.split('@')
+
+        if len(parts) == 1:
+            return parts[0]
+        elif len(parts) > 1:
+            return parts[:-1]
+        else:
+            raise Exception(f'Invalid plugin name found: {plugin_name_and_maybe_version}')
+
     tree = parse(BytesIO(bytearray(xml, 'utf-8')))
     for node_with_plugin in tree.xpath('//node()[@plugin]'):
-        plugin_without_version = ''.join(node_with_plugin.get('plugin').split('@')[:-1])
+        plugin_without_version = ''.join(_extract_plugin_name(node_with_plugin.get('plugin')))
         node_with_plugin.set('plugin', plugin_without_version)
     return canonicalize(tree)
 
@@ -212,7 +222,7 @@ def update_jenkins(base, path, creds, name, writeback, github_home, branch_ref):
             if len(diffs) > 0:
                 print(f'Jenkins job {full_job_name} needs update')
                 if writeback:
-                    print(diffs)
+                    print(json.dumps(diffs, indent=4))
                     if input(f'Are you sure you want to update configuration for {full_job_name} (y/n) ? ') == 'y':
                         print(f'Updating job configuration for {full_job_name}')
                         try:
@@ -266,6 +276,7 @@ def update_jenkins(base, path, creds, name, writeback, github_home, branch_ref):
     else:
         print('Could not ensure csvcubed configuration exists. Parent folders do not exist. '
               'Re-run with jenkins flag `-j` set to create said folders and jobs.')
+
 
 def update_airtable_issue(token, issue_number, issue_url, rec_id):
     source = Airtable(AIRTABLE_BASE, 'Source Data', api_key=token)
